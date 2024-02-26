@@ -15,9 +15,9 @@ import Micron
     post,
     put,
     query,
-    (--/),
+    ($-/),
     (-/),
-    (../),
+    ($./),
     (./:),
     (~>),
     (~.),
@@ -37,15 +37,15 @@ main :: IO ()
 main = do
   Warp.run 3000 $
     app
-      [ get     ../ ""              $ const (return "Hello, World!") |> ok,
-        get     ../ "user"          $ query ~> getUsers |> either errorRes ok,
-        post    ../ "user"          $ body ~> addUser |> either errorRes created,
-        get     ../ "user" ./: "id" $ param "id" ~> getUser |> either errorRes ok,
-        put     ../ "user" ./: "id" $ param "id" ~. body ~> updateUser |> either errorRes ok,
-        delete  ../ "user" ./: "id" $ param "id" ~> deleteUser |> maybe (ok "") errorRes
+      [ get     $./ ""              $ const (return "Hello, World!") |> ok,
+        get     $./ "user"          $ query ~> getUsers |> either errorRes ok,
+        post    $./ "user"          $ body ~> addUser |> either errorRes created,
+        get     $./ "user" ./: "id" $ param "id" ~> getUser |> either errorRes ok,
+        put     $./ "user" ./: "id" $ param "id" ~. body ~> updateUser |> either errorRes ok,
+        delete  $./ "user" ./: "id" $ param "id" ~> deleteUser |> maybe (ok "") errorRes
       ]
-      [ [get, post, put, delete]  --/ AnyAny        $ logReq,
-        [get, post, put, delete]  --/ NotFoundPath  $ logReq,
-        [post]                    --/ "user" -/ Any $ authenticated,
-        [put, delete]             --/ "user" -/ Any $ authenticated
+      [ [get, post, put, delete]  $-/ AnyAny        $ logReq,
+        [get, post, put, delete]  $-/ NotFoundPath  $ logReq,
+        [post]                    $-/ "user" -/ Any $ authenticated,
+        [put, delete]             $-/ "user" -/ Any $ authenticated
       ]

@@ -4,7 +4,7 @@ module Micron.Middleware
     MPathPart (..),
     addMiddlewares,
     logReq,
-    (--/),
+    ($-/),
     (-/),
   )
 where
@@ -67,10 +67,10 @@ infixr 9 -/
 (-/) :: (ToMPathParts a, ToMPathParts b) => a -> b -> [MPathPart]
 x -/ ys = toMPathParts x ++ toMPathParts ys
 
-infixl 1 --/
+infixl 1 $-/
 
-(--/) :: (ToMPath a) => [Method] -> a -> Middleware -> [MRoute]
-(--/) methods path m = map (\method -> MRoute method (toMPath path) m) methods
+($-/) :: (ToMPath a) => [Method] -> a -> Middleware -> [MRoute]
+($-/) methods path m = map (\method -> MRoute method (toMPath path) m) methods
 
 logReq :: Middleware
 logReq h req = do

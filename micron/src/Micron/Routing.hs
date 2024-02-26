@@ -8,8 +8,8 @@ module Micron.Routing
     defaultSpecialPaths,
     (./),
     (./:),
-    (../),
-    (../:),
+    ($./),
+    ($./:),
     Paths (..),
     SpecialPaths (..),
     SpecialPathKind (..),
@@ -93,15 +93,15 @@ infixr 9 ./:
 (./:) :: (ToPathParts a) => String -> a -> (String, [PathPart])
 x ./: ys = (x, fromParam ys)
 
-infixl 8 ../
+infixl 8 $./
 
-(../) :: (ToPath a) => Method -> a -> (Handler -> Route)
-method ../ path = Route method $ toPath path
+($./) :: (ToPath a) => Method -> a -> (Handler -> Route)
+method $./ path = Route method $ toPath path
 
-infixl 8 ../:
+infixl 8 $./:
 
-(../:) :: (ToPathParts a) => Method -> a -> (Handler -> Route)
-method ../: path = Route method $ toPath $ fromParam path
+($./:) :: (ToPathParts a) => Method -> a -> (Handler -> Route)
+method $./: path = Route method $ toPath $ fromParam path
 
 defaultSpecialPaths :: SpecialPaths
 defaultSpecialPaths =
