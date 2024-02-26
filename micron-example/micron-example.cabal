@@ -1,0 +1,52 @@
+cabal-version: 1.12
+
+name:           micron-example
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/davidaf3/micron#readme>
+homepage:       https://github.com/davidaf3/micron#readme
+bug-reports:    https://github.com/davidaf3/micron/issues
+author:         davidaf3
+license:        MIT
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/davidaf3/micron
+
+executable micron-example
+  main-is: Main.hs
+  other-modules:
+      Micron.Example.Auth
+      Micron.Example.Db
+      Micron.Example.Empty
+      Micron.Example.Crypto
+      Micron.Example.Resource.User.Model
+      Micron.Example.Resource.User.Service
+      Micron.Example.Resource.User.Filters
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  default-extensions:
+      ImportQualifiedPost
+      DeriveGeneric
+      TupleSections
+      GADTs
+      MultiParamTypeClasses
+      TypeSynonymInstances
+      FlexibleInstances
+  build-depends:
+      micron
+    , aeson >=2.2
+    , base >=4.7 && <5
+    , base64-bytestring
+    , bytestring
+    , containers
+    , selda
+    , selda-sqlite
+    , text
+    , uuid
+    , warp
+    , password
+  default-language: Haskell2010

@@ -1,0 +1,48 @@
+cabal-version: 1.12
+
+name:           micron
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/davidaf3/micron#readme>
+homepage:       https://github.com/davidaf3/micron#readme
+bug-reports:    https://github.com/davidaf3/micron/issues
+author:         davidaf3
+license:        MIT
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/davidaf3/micron
+
+library
+  exposed-modules:
+      Micron
+  other-modules:
+      Micron.Error
+      Micron.MIMEType
+      Micron.Middleware
+      Micron.Request
+      Micron.Response
+      Micron.Routing
+      Micron.Util
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  default-extensions:
+      ImportQualifiedPost
+      DeriveGeneric
+      TupleSections
+      GADTs
+      MultiParamTypeClasses
+      TypeSynonymInstances
+      FlexibleInstances
+  build-depends:
+      base >=4.7 && <5
+    , bytestring
+    , containers
+    , http-types
+    , text
+    , time
+    , wai
+  default-language: Haskell2010
