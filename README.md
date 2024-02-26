@@ -18,8 +18,7 @@ main = do
       ]
       [ [get, post, put, delete]  $-/ AnyAny        $ logReq,
         [get, post, put, delete]  $-/ NotFoundPath  $ logReq,
-        [post]                    $-/ "user" -/ Any $ authenticated,
-        [put, delete]             $-/ "user" -/ Any $ authenticated
+        [post, put, delete]       $-/ "user" -/ Any $ authenticated
       ]
 ```
 
