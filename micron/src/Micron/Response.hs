@@ -15,7 +15,7 @@ where
 import Data.ByteString.Lazy qualified as BL
 import Data.Maybe (fromMaybe, isJust)
 import Data.String (IsString (fromString))
-import Micron.MIMEType (appJson, textPlain)
+import Micron.MIMEType (appJson, textHtml, textPlain)
 import Micron.Request (Request (..))
 import Network.HTTP.Types
   ( Status,
@@ -34,17 +34,34 @@ import Network.Wai qualified as Wai
 
 class ToResponseContent a where
   toAppJson :: a -> Maybe BL.ByteString
+  toTextHtml :: a -> Maybe BL.ByteString
   toTextPlain :: a -> Maybe BL.ByteString
   default toAppJson :: a -> Maybe BL.ByteString
   toAppJson _ = Nothing
+  default toTextHtml :: a -> Maybe BL.ByteString
+  toTextHtml _ = Nothing
   default toTextPlain :: a -> Maybe BL.ByteString
   toTextPlain _ = Nothing
 
 instance ToResponseContent String where
-  toAppJson = Just . fromString
+  toAppJson = toTextPlain
+  toTextHtml = toTextPlain
+  toTextPlain = Just . fromString
 
 defaultAppJson :: BL.ByteString
 defaultAppJson = fromString "{\"error\":\"Not Acceptable\"}"
+
+defaultTextHtml :: BL.ByteString
+defaultTextHtml =
+  fromString
+    "<!DOCTYPE html><html lang=\"en\">\
+    \<head>\
+    \<meta charset=\"UTF-8\">\
+    \<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\
+    \<title>Not Acceptable</title>\
+    \</head>\
+    \<body><h1>Not Acceptable</h1></body>\
+    \</html>"
 
 defaultTextPlain :: BL.ByteString
 defaultTextPlain = fromString "Not Acceptable"
@@ -55,6 +72,7 @@ mkResponse s x req =
         [] -> (appJson, defaultAppJson, toAppJson x)
         ((_, accept) : _)
           | accept == appJson -> (appJson, defaultAppJson, toAppJson x)
+          | accept == textHtml -> (textHtml, defaultTextHtml, toTextHtml x)
           | accept == textPlain -> (textPlain, defaultTextPlain, toTextPlain x)
           | otherwise -> (appJson, defaultAppJson, toAppJson x)
       status = if isJust content then s else status406

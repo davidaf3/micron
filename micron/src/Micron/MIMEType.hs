@@ -7,3 +7,6 @@ appJson = BC.pack "application/json"
 
 textPlain :: BC.ByteString
 textPlain = BC.pack "text/plain"
+
+textHtml :: BC.ByteString
+textHtml = BC.pack "text/html"
