@@ -66,7 +66,7 @@ defaultTextHtml =
 defaultTextPlain :: BL.ByteString
 defaultTextPlain = fromString "Not Acceptable"
 
-mkResponse :: (ToResponseContent a) => Status -> a -> Request -> Wai.Response
+mkResponse :: (ToResponseContent a) => Status -> a -> Request b -> Wai.Response
 mkResponse s x req =
   let (ct, def, content) = case filter ((== hAccept) . fst) $ headers req of
         [] -> (appJson, defaultAppJson, toAppJson x)
@@ -79,23 +79,23 @@ mkResponse s x req =
       ctHeader = (hContentType, ct)
    in Wai.responseLBS status [ctHeader] $ fromMaybe def content
 
-ok :: (ToResponseContent a) => a -> Request -> Wai.Response
+ok :: (ToResponseContent a) => a -> Request b -> Wai.Response
 ok = mkResponse status200
 
-created :: (ToResponseContent a) => a -> Request -> Wai.Response
+created :: (ToResponseContent a) => a -> Request b -> Wai.Response
 created = mkResponse status201
 
-badRequest :: (ToResponseContent a) => a -> Request -> Wai.Response
+badRequest :: (ToResponseContent a) => a -> Request b -> Wai.Response
 badRequest = mkResponse status400
 
-notFound :: (ToResponseContent a) => a -> Request -> Wai.Response
+notFound :: (ToResponseContent a) => a -> Request b -> Wai.Response
 notFound = mkResponse status404
 
-unauthorized :: (ToResponseContent a) => a -> Request -> Wai.Response
+unauthorized :: (ToResponseContent a) => a -> Request b -> Wai.Response
 unauthorized = mkResponse status401
 
-forbidden :: (ToResponseContent a) => a -> Request -> Wai.Response
+forbidden :: (ToResponseContent a) => a -> Request b -> Wai.Response
 forbidden = mkResponse status403
 
-unprocessableEntity :: (ToResponseContent a) => a -> Request -> Wai.Response
+unprocessableEntity :: (ToResponseContent a) => a -> Request b -> Wai.Response
 unprocessableEntity = mkResponse status422

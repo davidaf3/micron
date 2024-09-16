@@ -27,11 +27,11 @@ import Network.HTTP.Types as HTTP (Method, Status (statusCode))
 import Network.Wai qualified as Wai
 import Text.Printf (printf)
 
-type Middleware = Handler -> Handler
+type Middleware a = Handler a -> Handler a
 
 data MPath = MSpecialPath SpecialPathKind | MPathParts [MPathPart]
 
-data MRoute = MRoute Method MPath Middleware
+data MRoute a = MRoute Method MPath (Middleware a)
 
 data MPathPart = MExact T.Text | Any | AnyAny
 
@@ -69,10 +69,10 @@ x -/ ys = toMPathParts x ++ toMPathParts ys
 
 infixl 1 $-/
 
-($-/) :: (ToMPath a) => [Method] -> a -> Middleware -> [MRoute]
+($-/) :: (ToMPath a) => [Method] -> a -> Middleware b -> [MRoute b]
 ($-/) methods path m = map (\method -> MRoute method (toMPath path) m) methods
 
-logReq :: Middleware
+logReq :: Middleware a
 logReq h req = do
   res <- h req
   time <- getCurrentTime
@@ -85,9 +85,9 @@ logReq h req = do
   return res
 
 addMiddlewares ::
-  [MRoute] ->
-  (Map Method Paths, Map Method SpecialPaths) ->
-  (Map Method Paths, Map Method SpecialPaths)
+  [MRoute a] ->
+  (Map Method (Paths a), Map Method (SpecialPaths a)) ->
+  (Map Method (Paths a), Map Method (SpecialPaths a))
 addMiddlewares routes byMethod = foldl doAdd byMethod $ reverse routes
   where
     doAdd (ps, sps) (MRoute method (MSpecialPath kind) m) =
@@ -95,11 +95,11 @@ addMiddlewares routes byMethod = foldl doAdd byMethod $ reverse routes
     doAdd (ps, sps) (MRoute method (MPathParts path) m) =
       (Map.update (Just . addMiddleware path m) method ps, sps)
 
-addSpecialMiddleware :: SpecialPathKind -> Middleware -> SpecialPaths -> SpecialPaths
+addSpecialMiddleware :: SpecialPathKind -> Middleware a -> SpecialPaths a -> SpecialPaths a
 addSpecialMiddleware NotFoundPath m sps =
   SpecialPaths {notFoundHandler = m $ notFoundHandler sps}
 
-addMiddleware :: [MPathPart] -> Middleware -> Paths -> Paths
+addMiddleware :: [MPathPart] -> Middleware a -> Paths a -> Paths a
 addMiddleware path m = addMiddleware' path False
   where
     updateChildren ps matchAll cs k = Map.update (Just . addMiddleware' ps matchAll) k cs

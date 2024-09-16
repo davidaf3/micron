@@ -10,6 +10,7 @@ module Micron.Request
     body,
     param,
     query,
+    extra,
     parseText,
   )
 where
@@ -40,12 +41,13 @@ import Network.HTTP.Types (Method, RequestHeaders, hContentType)
 
 type QueryString = Map B.ByteString T.Text
 
-data Request = Request
+data Request a = Request
   { path :: B.ByteString,
     method :: Method,
     headers :: RequestHeaders,
     params :: Map T.Text T.Text,
     queryString :: QueryString,
+    extraData :: a,
     requestBody :: BL.ByteString
   }
 
@@ -111,15 +113,15 @@ instance (Parseable a, Selector c) => GFromQueryString (M1 S c (K1 i a)) where
           Right x -> Right $ M1 $ K1 x
           Left err -> Left $ Map.singleton sel err
 
-param :: (Parseable a) => String -> (Request -> Either String a -> b) -> Request -> b
+param :: (Parseable a) => String -> (Request c -> Either String a -> b) -> Request c -> b
 param name f req =
   let arg = Map.lookup (T.pack name) $ params req
    in f req $ parseText $ fromMaybe T.empty arg
 
-query :: (FromQueryString a) => (Request -> Either (Map String String) a -> b) -> Request -> b
+query :: (FromQueryString a) => (Request c -> Either (Map String String) a -> b) -> Request c -> b
 query f req = f req $ fromQueryString $ queryString req
 
-body :: (FromRequestBody a) => (Request -> Maybe a -> b) -> Request -> b
+body :: (FromRequestBody a) => (Request c -> Maybe a -> b) -> Request c -> b
 body f req =
   let x = case filter ((== hContentType) . fst) $ headers req of
         [] -> fromAppJson $ requestBody req
@@ -127,3 +129,6 @@ body f req =
           | accept == appJson -> fromAppJson $ requestBody req
           | otherwise -> fromAppJson $ requestBody req
    in f req x
+
+extra :: (a -> c) -> (Request a -> c -> b) -> Request a -> b
+extra accessor f req = f req $ accessor $ extraData req
