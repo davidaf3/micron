@@ -22,9 +22,14 @@ executable micron-example
       Micron.Example.Db
       Micron.Example.Empty
       Micron.Example.Crypto
+      Micron.Example.Config
       Micron.Example.Resource.User.Model
       Micron.Example.Resource.User.Service
       Micron.Example.Resource.User.Filters
+      Micron.Example.Resource.UserToken.Model
+      Micron.Example.Resource.UserToken.Service
+      Micron.Example.Resource.Post.Model
+      Micron.Example.Resource.Post.Service
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
@@ -40,7 +45,6 @@ executable micron-example
       micron
     , aeson >=2.2
     , base >=4.7 && <5
-    , base64-bytestring
     , bytestring
     , containers
     , selda

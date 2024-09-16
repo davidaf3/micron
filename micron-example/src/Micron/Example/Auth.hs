@@ -2,39 +2,30 @@
 
 module Micron.Example.Auth (authenticated) where
 
-import Data.ByteString.Base64 qualified as Base64
 import Data.ByteString.Char8 qualified as BC
 import Data.Functor ((<&>))
 import Data.List (find)
-import Data.Text qualified as T
+import Data.Maybe (isJust)
 import Data.Text.Encoding (decodeUtf8)
 import Micron
   ( BaseErrorType (..),
     Error (..),
     Middleware,
-    Request (headers),
+    Request (..),
     errorRes,
   )
-import Micron.Example.Crypto (checkPassword)
-import Micron.Example.Resource.User.Model (User' (password))
-import Micron.Example.Resource.User.Service (getUser)
+import Micron.Example.Config (RequestExtra (RequestExtra))
+import Micron.Example.Resource.UserToken.Service (getUserByToken)
 
-parseAuth :: BC.ByteString -> Maybe (T.Text, T.Text)
-parseAuth header = case BC.stripPrefix "Basic " header <&> Base64.decode of
-  Just (Right credentials) -> case BC.split ':' credentials of
-    [uId, pass] -> Just (decodeUtf8 uId, decodeUtf8 pass)
-    _ -> Nothing
-  _ -> Nothing
-
-authenticated :: Middleware
+authenticated :: Middleware RequestExtra
 authenticated h req = do
   let auth = find ((== "Authorization") . fst) $ headers req
-  case auth >>= parseAuth . snd of
+  case auth >>= BC.stripPrefix "Bearer " . snd <&> decodeUtf8 of
     Nothing ->
       return $
         errorRes (Error Unauthorized "Invalid or missing Authorization header") req
-    Just (uId, pass) -> do
-      eitherUser <- getUser $ Right uId
-      if either (const False) (checkPassword pass . password) eitherUser
-        then h req
+    (Just token) -> do
+      maybeUser <- getUserByToken token
+      if isJust maybeUser
+        then h req {extraData = RequestExtra maybeUser}
         else return $ errorRes (Error Forbidden "Forbidden") req

@@ -4,10 +4,8 @@
 module Micron.Example.Resource.User.Model
   ( User' (..),
     User,
-    UserWoID,
-    UserWoIDWoPass,
+    LoginData,
     users,
-    withId,
   )
 where
 
@@ -21,7 +19,7 @@ import Data.Aeson
     genericToEncoding,
   )
 import Data.Text qualified as T
-import Database.Selda (Attr ((:-)), SqlRow, Table, primary, table)
+import Database.Selda (Attr ((:-)), SqlRow, Table, primary, table, unique)
 import GHC.Generics (Generic)
 import Micron (FromRequestBody (..), ToResponseContent (..))
 import Micron.Example.Empty (Empty (..))
@@ -35,18 +33,10 @@ data User' a b = User
 
 type User = User' T.Text T.Text
 
-type UserWoID = User' Empty T.Text
-
-type UserWoIDWoPass = User' Empty Empty
+type LoginData = User' Empty T.Text
 
 users :: Table User
-users = table "user" [#userId :- primary]
-
-withId :: User' a b -> T.Text -> User' T.Text b
-withId u i = u {userId = i}
-
-woPass :: User' a b -> User' a Empty
-woPass u = u {password = Empty}
+users = table "user" [#userId :- primary, #userName :- unique]
 
 instance SqlRow User
 
@@ -54,17 +44,12 @@ instance (ToJSON a, ToJSON b) => ToJSON (User' a b) where
   toEncoding = genericToEncoding defaultOptions {omitNothingFields = True}
 
 instance ToResponseContent User where
-  toAppJson = Just . encode . woPass
+  toAppJson u = Just $ encode $ u {password = Empty}
 
 instance ToResponseContent [User] where
-  toAppJson = Just . encode . map woPass
+  toAppJson = Just . encode . map (\u -> u {password = Empty})
 
-instance FromJSON UserWoID
+instance FromJSON LoginData
 
-instance FromRequestBody UserWoID where
-  fromAppJson = decode
-
-instance FromJSON UserWoIDWoPass
-
-instance FromRequestBody UserWoIDWoPass where
+instance FromRequestBody LoginData where
   fromAppJson = decode
