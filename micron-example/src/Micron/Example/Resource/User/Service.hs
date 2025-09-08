@@ -26,47 +26,47 @@ import Micron.Example.Crypto (checkPassword, hashPassword)
 import Micron.Example.Db (withDb)
 import Micron.Example.Resource.User.Filters (UserFilters, applyFilters)
 import Micron.Example.Resource.User.Model
-  ( LoginData,
-    User,
-    User' (..),
+  ( LoginData (..),
+    User (..),
+    UserView (..),
     users,
   )
 import Micron.Example.Resource.UserToken.Model (UserToken)
 import Micron.Example.Resource.UserToken.Service (addUserToken)
 
-getUsers :: Either (Map String String) UserFilters -> IO (Either BaseError [User])
+getUsers :: Either (Map String String) UserFilters -> IO (Either BaseError [UserView])
 getUsers (Left _) = return $ Left $ Error InvalidArgument "Invalid filters"
 getUsers (Right filters) = withDb $ do
-  res <- query $ do
+  us <- query $ do
     user <- select users
     applyFilters filters user
     return user
-  return $ Right res
+  return $ Right $ map (\u -> UserView (userId u) (userName u)) us
 
-signUp :: Maybe LoginData -> IO (Either BaseError User)
+signUp :: Maybe LoginData -> IO (Either BaseError UserView)
 signUp Nothing = return $ Left $ Error InvalidArgument "Invalid login data"
-signUp (Just user) = withDb $ do
+signUp (Just loginData) = withDb $ do
   usersSameName <- query $ do
     userSameName <- select users
-    restrict (userSameName ! #userName .== literal (userName user))
+    restrict (userSameName ! #userName .== literal (loginUserName loginData))
     return userSameName
   if not $ null usersSameName
     then return $ Left $ Error InvalidArgument "Username already taken"
     else do
-      userWithId <- liftIO nextRandom <&> (\uId -> user {userId = toText uId})
-      hashedPass <- liftIO (hashPassword $ password userWithId)
-      _ <- insert users [userWithId {password = hashedPass}]
-      return $ Right userWithId
+      newUserId <- liftIO nextRandom <&> toText
+      hashedPass <- liftIO (hashPassword $ loginPassword loginData)
+      _ <- insert users [User newUserId hashedPass (loginUserName loginData)]
+      return $ Right $ UserView newUserId (loginUserName loginData)
 
 login :: Maybe LoginData -> IO (Either BaseError UserToken)
 login Nothing = return $ Left $ Error InvalidArgument "Invalid credentials"
-login (Just user) = withDb $ do
+login (Just loginData) = withDb $ do
   signedUpUsers <- query $ do
     signedUpUser <- select users
-    restrict (signedUpUser ! #userName .== literal (userName user))
+    restrict (signedUpUser ! #userName .== literal (loginUserName loginData))
     return signedUpUser
   case signedUpUsers of
     [signedUpUser]
-      | checkPassword (password user) (password $ head signedUpUsers) ->
+      | checkPassword (loginPassword loginData) (password $ head signedUpUsers) ->
           liftIO (addUserToken signedUpUser) <&> Right
     _ -> return $ Left $ Error Unauthorized "Invalid credentials"

@@ -22,7 +22,7 @@ import Database.Selda
     (.==),
   )
 import Micron.Example.Db (withDb)
-import Micron.Example.Resource.User.Model (User, User' (..), users)
+import Micron.Example.Resource.User.Model (User (..), users)
 import Micron.Example.Resource.UserToken.Model (UserToken (UserToken), userTokens)
 
 addUserToken :: User -> IO UserToken

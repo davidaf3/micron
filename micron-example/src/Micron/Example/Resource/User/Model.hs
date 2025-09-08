@@ -1,55 +1,40 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Micron.Example.Resource.User.Model
-  ( User' (..),
-    User,
-    LoginData,
+  ( User (..),
+    UserView (..),
+    LoginData (..),
     users,
   )
 where
 
-import Data.Aeson
-  ( FromJSON,
-    Options (omitNothingFields),
-    ToJSON (toEncoding),
-    decode,
-    defaultOptions,
-    encode,
-    genericToEncoding,
-  )
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Text qualified as T
 import Database.Selda (Attr ((:-)), SqlRow, Table, primary, table, unique)
 import GHC.Generics (Generic)
 import Micron (FromRequestBody (..), ToResponseContent (..))
-import Micron.Example.Empty (Empty (..))
+import Micron.Example.Utils (FromJSONVia (FromJSONVia), ToJSONVia (ToJSONVia))
 
-data User' a b = User
-  { userId :: a,
-    password :: b,
+data User = User
+  { userId :: T.Text,
+    password :: T.Text,
     userName :: T.Text
   }
-  deriving (Generic, Show)
-
-type User = User' T.Text T.Text
-
-type LoginData = User' Empty T.Text
+  deriving (Generic, Show, SqlRow)
 
 users :: Table User
 users = table "user" [#userId :- primary, #userName :- unique]
 
-instance SqlRow User
+data UserView = UserView {viewUserId :: T.Text, viewUserName :: T.Text}
+  deriving (Generic, Show, ToJSON)
+  deriving (ToResponseContent) via (ToJSONVia UserView)
 
-instance (ToJSON a, ToJSON b) => ToJSON (User' a b) where
-  toEncoding = genericToEncoding defaultOptions {omitNothingFields = True}
+deriving via (ToJSONVia [UserView]) instance (ToResponseContent [UserView])
 
-instance ToResponseContent User where
-  toAppJson u = Just $ encode $ u {password = Empty}
-
-instance ToResponseContent [User] where
-  toAppJson = Just . encode . map (\u -> u {password = Empty})
-
-instance FromJSON LoginData
-
-instance FromRequestBody LoginData where
-  fromAppJson = decode
+data LoginData = LoginData {loginPassword :: T.Text, loginUserName :: T.Text}
+  deriving (Generic, Show, FromJSON)
+  deriving (FromRequestBody) via (FromJSONVia LoginData)

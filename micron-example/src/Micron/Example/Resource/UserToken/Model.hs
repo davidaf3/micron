@@ -1,9 +1,11 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Micron.Example.Resource.UserToken.Model (UserToken (..), userTokens) where
 
-import Data.Aeson (ToJSON, encode)
+import Data.Aeson (ToJSON)
 import Data.Text qualified as T
 import Database.Selda
   ( Attr ((:-)),
@@ -14,14 +16,16 @@ import Database.Selda
     table,
   )
 import GHC.Generics (Generic)
-import Micron (ToResponseContent (..))
+import Micron (ToResponseContent)
 import Micron.Example.Resource.User.Model (users)
+import Micron.Example.Utils (ToJSONVia (ToJSONVia))
 
 data UserToken = UserToken
   { token :: T.Text,
     userId :: T.Text
   }
-  deriving (Generic, Show)
+  deriving (Generic, Show, SqlRow, ToJSON)
+  deriving (ToResponseContent) via (ToJSONVia UserToken)
 
 userTokens :: Table UserToken
 userTokens =
@@ -30,10 +34,3 @@ userTokens =
     [ #token :- primary,
       #userId :- foreignKey users #userId
     ]
-
-instance SqlRow UserToken
-
-instance ToJSON UserToken
-
-instance ToResponseContent UserToken where
-  toAppJson = Just . encode

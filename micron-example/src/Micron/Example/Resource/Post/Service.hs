@@ -31,7 +31,7 @@ import Database.Selda
 import Micron (BaseError, BaseErrorType (..), Error (Error))
 import Micron.Example.Db (withDb)
 import Micron.Example.Resource.Post.Model (Post (Post), PostInput (..), posts)
-import Micron.Example.Resource.User.Model (User, User' (..))
+import Micron.Example.Resource.User.Model (User (..))
 
 addPost :: Maybe PostInput -> Maybe User -> IO (Either BaseError Post)
 addPost Nothing _ = return $ Left $ Error InvalidArgument "Invalid post data"
