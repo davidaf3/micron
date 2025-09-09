@@ -3,17 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Micron.Request
-  ( Request (..),
-    FromRequestBody (..),
-    FromQueryString (..),
-    body,
-    param,
-    query,
-    extra,
-    parseText,
-  )
-where
+module Micron.Request (Request (..), FromRequestBody (..), FromQueryString (..), Parseable (..)) where
 
 import Data.ByteString qualified as B
 import Data.ByteString.Lazy qualified as BL
@@ -35,9 +25,7 @@ import GHC.Generics
     Selector (selName),
     (:*:) (..),
   )
-import Micron.MIMEType (appJson)
-import Micron.Util (mapRight)
-import Network.HTTP.Types (Method, RequestHeaders, hContentType)
+import Network.HTTP.Types (Method, RequestHeaders)
 
 type QueryString = Map B.ByteString T.Text
 
@@ -82,12 +70,12 @@ instance (Parseable a) => Parseable [a] where
 instance (Parseable a) => Parseable (Maybe a) where
   parseText text
     | text == T.empty = Right Nothing
-    | otherwise = mapRight Just $ parseText text
+    | otherwise = Just <$> parseText text
 
 class FromQueryString a where
   fromQueryString :: QueryString -> Either (Map String String) a
   default fromQueryString :: (Generic a, GFromQueryString (Rep a)) => QueryString -> Either (Map String String) a
-  fromQueryString qs = mapRight to $ gfromQueryString qs
+  fromQueryString qs = to <$> gfromQueryString qs
 
 class GFromQueryString f where
   gfromQueryString :: QueryString -> Either (Map String String) (f a)
@@ -100,10 +88,10 @@ instance (GFromQueryString a, GFromQueryString b) => GFromQueryString (a :*: b) 
     (Left xErrs, Left yErrs) -> Left $ Map.union xErrs yErrs
 
 instance (GFromQueryString a) => GFromQueryString (M1 D c a) where
-  gfromQueryString qs = mapRight M1 $ gfromQueryString qs
+  gfromQueryString qs = M1 <$> gfromQueryString qs
 
 instance (GFromQueryString a) => GFromQueryString (M1 C c a) where
-  gfromQueryString qs = mapRight M1 $ gfromQueryString qs
+  gfromQueryString qs = M1 <$> gfromQueryString qs
 
 instance (Parseable a, Selector c) => GFromQueryString (M1 S c (K1 i a)) where
   gfromQueryString qs =
@@ -112,23 +100,3 @@ instance (Parseable a, Selector c) => GFromQueryString (M1 S c (K1 i a)) where
      in case parseText val of
           Right x -> Right $ M1 $ K1 x
           Left err -> Left $ Map.singleton sel err
-
-param :: (Parseable a) => String -> (Request c -> Either String a -> b) -> Request c -> b
-param name f req =
-  let arg = Map.lookup (T.pack name) $ params req
-   in f req $ parseText $ fromMaybe T.empty arg
-
-query :: (FromQueryString a) => (Request c -> Either (Map String String) a -> b) -> Request c -> b
-query f req = f req $ fromQueryString $ queryString req
-
-body :: (FromRequestBody a) => (Request c -> Maybe a -> b) -> Request c -> b
-body f req =
-  let x = case filter ((== hContentType) . fst) $ headers req of
-        [] -> fromAppJson $ requestBody req
-        ((_, accept) : _)
-          | accept == appJson -> fromAppJson $ requestBody req
-          | otherwise -> fromAppJson $ requestBody req
-   in f req x
-
-extra :: (a -> c) -> (Request a -> c -> b) -> Request a -> b
-extra accessor f req = f req $ accessor $ extraData req

@@ -1,14 +1,8 @@
 {-# LANGUAGE OverloadedLabels #-}
 
-module Micron.Example.Resource.User.Service
-  ( getUsers,
-    signUp,
-    login,
-  )
-where
+module Micron.Example.Resource.User.Service (getUsers, signUp, login) where
 
 import Data.Functor ((<&>))
-import Data.Map (Map)
 import Data.UUID (toText)
 import Data.UUID.V4 (nextRandom)
 import Database.Selda
@@ -21,31 +15,24 @@ import Database.Selda
     (!),
     (.==),
   )
-import Micron (BaseError, BaseErrorType (..), Error (..))
+import Micron (BaseErrorType (..), Error (..))
 import Micron.Example.Crypto (checkPassword, hashPassword)
 import Micron.Example.Db (withDb)
 import Micron.Example.Resource.User.Filters (UserFilters, applyFilters)
-import Micron.Example.Resource.User.Model
-  ( LoginData (..),
-    User (..),
-    UserView (..),
-    users,
-  )
+import Micron.Example.Resource.User.Model (LoginData (..), User (..), UserView (..), users)
 import Micron.Example.Resource.UserToken.Model (UserToken)
 import Micron.Example.Resource.UserToken.Service (addUserToken)
 
-getUsers :: Either (Map String String) UserFilters -> IO (Either BaseError [UserView])
-getUsers (Left _) = return $ Left $ Error InvalidArgument "Invalid filters"
-getUsers (Right filters) = withDb $ do
+getUsers :: UserFilters -> IO [UserView]
+getUsers filters = withDb $ do
   us <- query $ do
     user <- select users
     applyFilters filters user
     return user
-  return $ Right $ map (\u -> UserView (userId u) (userName u)) us
+  return $ map (\u -> UserView (userId u) (userName u)) us
 
-signUp :: Maybe LoginData -> IO (Either BaseError UserView)
-signUp Nothing = return $ Left $ Error InvalidArgument "Invalid login data"
-signUp (Just loginData) = withDb $ do
+signUp :: LoginData -> IO (Either Error UserView)
+signUp loginData = withDb $ do
   usersSameName <- query $ do
     userSameName <- select users
     restrict (userSameName ! #userName .== literal (loginUserName loginData))
@@ -58,9 +45,8 @@ signUp (Just loginData) = withDb $ do
       _ <- insert users [User newUserId hashedPass (loginUserName loginData)]
       return $ Right $ UserView newUserId (loginUserName loginData)
 
-login :: Maybe LoginData -> IO (Either BaseError UserToken)
-login Nothing = return $ Left $ Error InvalidArgument "Invalid credentials"
-login (Just loginData) = withDb $ do
+login :: LoginData -> IO (Either Error UserToken)
+login loginData = withDb $ do
   signedUpUsers <- query $ do
     signedUpUser <- select users
     restrict (signedUpUser ! #userName .== literal (loginUserName loginData))

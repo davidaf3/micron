@@ -43,6 +43,11 @@ class ToResponseContent a where
   default toTextPlain :: a -> Maybe BL.ByteString
   toTextPlain _ = Nothing
 
+instance ToResponseContent () where
+  toAppJson = toTextPlain
+  toTextHtml = toTextPlain
+  toTextPlain _ = Just $ fromString ""
+
 instance ToResponseContent String where
   toAppJson = toTextPlain
   toTextHtml = toTextPlain

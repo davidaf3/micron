@@ -1,3 +1,6 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 module Main (main) where
 
 import Micron
@@ -8,7 +11,6 @@ import Micron
     extra,
     created,
     delete,
-    errorRes,
     get,
     logReq,
     ok,
@@ -21,7 +23,9 @@ import Micron
     ($./),
     (./:),
     (~>),
+    (!~>),
     (|>),
+    (!|>),
     (~.),
     (./),
   )
@@ -46,14 +50,14 @@ main = do
   Warp.run 3000 $
     app
       [ get     $./ ""        $ const (return "Hello, World!") |> ok,
-        post    $./ "sign-up" $ body ~> signUp |> either errorRes created,
-        post    $./ "login"   $ body ~> login |> either errorRes ok,
-        get     $./ "user"          $ query ~> getUsers |> either errorRes ok,
-        get     $./ "user" ./: "id" ./ "post" $ param "id" ~> getPostsByUser |> either errorRes ok,
-        post    $./ "post"          $ body ~. extra user ~> addPost |> either errorRes ok,
-        get     $./ "post" ./: "id" $ param "id" ~> getPost |> either errorRes ok,
-        put     $./ "post" ./: "id" $ param "id" ~. body ~. extra user ~> updatePost |> either errorRes ok,
-        delete  $./ "post" ./: "id" $ param "id" ~. extra user ~> deletePost |> maybe (ok "") errorRes
+        post    $./ "sign-up" $ body !~> signUp !|> created,
+        post    $./ "login"   $ body !~> login !|> ok,
+        get     $./ "user"    $ query ~> getUsers !|> ok,
+        get     $./ "user" ./: "id" ./ "post" $ param "id" ~> getPostsByUser !|> ok,
+        post    $./ "post"    $ body ~. extra user !~> addPost !|> created,
+        get     $./ "post" ./: "id" $ param "id" !~> getPost !|> ok,
+        put     $./ "post" ./: "id" $ param "id" ~. body ~. extra user !~> updatePost !|> ok,
+        delete  $./ "post" ./: "id" $ param "id" ~. extra user !~> deletePost !|> ok
       ]
       [ [get, post, put, delete]  $-/ AnyAny        $ logReq,
         [get, post, put, delete]  $-/ NotFoundPath  $ logReq,

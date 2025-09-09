@@ -28,22 +28,20 @@ import Database.Selda
     (.&&),
     (.==),
   )
-import Micron (BaseError, BaseErrorType (..), Error (Error))
+import Micron (BaseErrorType (..), Error (Error))
 import Micron.Example.Db (withDb)
 import Micron.Example.Resource.Post.Model (Post (Post), PostInput (..), posts)
 import Micron.Example.Resource.User.Model (User (..))
 
-addPost :: Maybe PostInput -> Maybe User -> IO (Either BaseError Post)
-addPost Nothing _ = return $ Left $ Error InvalidArgument "Invalid post data"
+addPost :: PostInput -> Maybe User -> IO (Either Error Post)
 addPost _ Nothing = return $ Left $ Error Forbidden "Forbidden"
-addPost (Just input) (Just (User {userId})) = do
+addPost input (Just (User {userId})) = do
   post <- nextRandom <&> (\pId -> Post (toText pId) userId (content input))
   _ <- withDb $ do insert posts [post]
   return $ Right post
 
-getPost :: Either String T.Text -> IO (Either BaseError Post)
-getPost (Left _) = return $ Left $ Error InvalidArgument "Invalid post id"
-getPost (Right pId) = do
+getPost :: T.Text -> IO (Either Error Post)
+getPost pId = do
   foundPosts <- withDb $ query $ do
     post <- select posts
     restrict (post ! #postId .== literal pId)
@@ -52,35 +50,30 @@ getPost (Right pId) = do
     [post] -> return $ Right post
     _ -> return $ Left $ Error NotFound "Post not found"
 
-getPostsByUser :: Either String T.Text -> IO (Either BaseError [Post])
-getPostsByUser (Left _) = return $ Left $ Error InvalidArgument "Invalid user id"
-getPostsByUser (Right uId) = do
-  userPosts <- withDb $ query $ do
+getPostsByUser :: T.Text -> IO [Post]
+getPostsByUser uId = do
+  withDb $ query $ do
     post <- select posts
     restrict (post ! #userId .== literal uId)
     return post
-  return $ Right userPosts
 
-updatePost :: Either String T.Text -> Maybe PostInput -> Maybe User -> IO (Either BaseError Post)
-updatePost (Left _) _ _ = return $ Left $ Error InvalidArgument "Invalid post id"
-updatePost _ Nothing _ = return $ Left $ Error InvalidArgument "Invalid updated post"
+updatePost :: T.Text -> PostInput -> Maybe User -> IO (Either Error Post)
 updatePost _ _ Nothing = return $ Left $ Error Forbidden "Forbidden"
-updatePost (Right pId) (Just new) (Just (User {userId})) = do
+updatePost pId updated (Just (User {userId})) = do
   nUpdated <-
     withDb $
       update
         posts
         (\post -> post ! #postId .== literal pId .&& post ! #userId .== literal userId)
-        (\post -> post `with` [#content := literal (content new)])
+        (\post -> post `with` [#content := literal (content updated)])
   return $
     if nUpdated == 0
       then Left $ Error NotFound "Post not found"
-      else Right $ Post pId userId (content new)
+      else Right $ Post pId userId (content updated)
 
-deletePost :: Either String T.Text -> Maybe User -> IO (Maybe BaseError)
-deletePost (Left _) _ = return $ Just $ Error InvalidArgument "Invalid post id"
-deletePost _ Nothing = return $ Just $ Error Forbidden "Forbidden"
-deletePost (Right pId) (Just (User {userId})) = do
+deletePost :: T.Text -> Maybe User -> IO (Either Error ())
+deletePost _ Nothing = return $ Left $ Error Forbidden "Forbidden"
+deletePost pId (Just (User {userId})) = do
   nDeleted <-
     withDb $
       deleteFrom
@@ -88,5 +81,5 @@ deletePost (Right pId) (Just (User {userId})) = do
         (\post -> post ! #postId .== literal pId .&& post ! #userId .== literal userId)
   return $
     if nDeleted == 0
-      then Just $ Error NotFound "Post not found"
-      else Nothing
+      then Left $ Error NotFound "Post not found"
+      else Right ()

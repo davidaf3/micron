@@ -1,10 +1,6 @@
 {-# LANGUAGE OverloadedLabels #-}
 
-module Micron.Example.Resource.UserToken.Service
-  ( addUserToken,
-    getUserByToken,
-  )
-where
+module Micron.Example.Resource.UserToken.Service (addUserToken, getUserByToken) where
 
 import Data.Functor ((<&>))
 import Data.Maybe (listToMaybe)

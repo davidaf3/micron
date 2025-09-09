@@ -19,13 +19,14 @@ library
   exposed-modules:
       Micron
   other-modules:
+      Micron.App
       Micron.Error
       Micron.MIMEType
       Micron.Middleware
       Micron.Request
       Micron.Response
       Micron.Routing
-      Micron.Util
+      Micron.Extractor
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
