@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -29,12 +30,12 @@ data User = User
 users :: Table User
 users = table "user" [#userId :- primary, #userName :- unique]
 
-data UserView = UserView {viewUserId :: T.Text, viewUserName :: T.Text}
+data UserView = UserView {userId :: T.Text, userName :: T.Text}
   deriving (Generic, Show, ToJSON)
   deriving (ToResponseContent) via (ToJSONVia UserView)
 
 deriving via (ToJSONVia [UserView]) instance (ToResponseContent [UserView])
 
-data LoginData = LoginData {loginPassword :: T.Text, loginUserName :: T.Text}
+data LoginData = LoginData {password :: T.Text, userName :: T.Text}
   deriving (Generic, Show, FromJSON)
   deriving (FromRequestBody) via (FromJSONVia LoginData)
