@@ -33,9 +33,8 @@ import Micron.Example.Db (withDb)
 import Micron.Example.Resource.Post.Model (Post (Post), PostInput (..), posts)
 import Micron.Example.Resource.User.Model (User (..))
 
-addPost :: PostInput -> Maybe User -> IO (Either Error Post)
-addPost _ Nothing = return $ Left $ Error Forbidden "Forbidden"
-addPost input (Just (User {userId})) = do
+addPost :: PostInput -> User -> IO (Either Error Post)
+addPost input (User {userId}) = do
   post <- nextRandom <&> (\pId -> Post (toText pId) userId (content input))
   _ <- withDb $ do insert posts [post]
   return $ Right post
@@ -57,9 +56,8 @@ getPostsByUser uId = do
     restrict (post ! #userId .== literal uId)
     return post
 
-updatePost :: T.Text -> PostInput -> Maybe User -> IO (Either Error Post)
-updatePost _ _ Nothing = return $ Left $ Error Forbidden "Forbidden"
-updatePost pId updated (Just (User {userId})) = do
+updatePost :: T.Text -> PostInput -> User -> IO (Either Error Post)
+updatePost pId updated (User {userId}) = do
   nUpdated <-
     withDb $
       update
@@ -71,9 +69,8 @@ updatePost pId updated (Just (User {userId})) = do
       then Left $ Error NotFound "Post not found"
       else Right $ Post pId userId (content updated)
 
-deletePost :: T.Text -> Maybe User -> IO (Either Error ())
-deletePost _ Nothing = return $ Left $ Error Forbidden "Forbidden"
-deletePost pId (Just (User {userId})) = do
+deletePost :: T.Text -> User -> IO (Either Error ())
+deletePost pId (User {userId}) = do
   nDeleted <-
     withDb $
       deleteFrom

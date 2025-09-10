@@ -21,7 +21,6 @@ library
       Micron.Example.Db
       Micron.Example.Utils
       Micron.Example.Crypto
-      Micron.Example.Config
       Micron.Example.Resource.User.Model
       Micron.Example.Resource.User.Service
       Micron.Example.Resource.User.Filters

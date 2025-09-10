@@ -16,7 +16,7 @@ import Data.ByteString.Lazy qualified as BL
 import Data.Maybe (fromMaybe, isJust)
 import Data.String (IsString (fromString))
 import Micron.MIMEType (appJson, textHtml, textPlain)
-import Micron.Request (Request (..))
+import Micron.Request (Request (..), BaseRequest (headers))
 import Network.HTTP.Types
   ( Status,
     hAccept,
@@ -71,9 +71,9 @@ defaultTextHtml =
 defaultTextPlain :: BL.ByteString
 defaultTextPlain = fromString "Not Acceptable"
 
-mkResponse :: (ToResponseContent a) => Status -> a -> Request b -> Wai.Response
+mkResponse :: (ToResponseContent a, Request r) => Status -> a -> r -> Wai.Response
 mkResponse s x req =
-  let (ct, def, content) = case filter ((== hAccept) . fst) $ headers req of
+  let (ct, def, content) = case filter ((== hAccept) . fst) $ headers $ getBaseRequest req of
         [] -> (appJson, defaultAppJson, toAppJson x)
         ((_, accept) : _)
           | accept == appJson -> (appJson, defaultAppJson, toAppJson x)
@@ -84,23 +84,23 @@ mkResponse s x req =
       ctHeader = (hContentType, ct)
    in Wai.responseLBS status [ctHeader] $ fromMaybe def content
 
-ok :: (ToResponseContent a) => a -> Request b -> Wai.Response
+ok :: (ToResponseContent a, Request r) => a -> r -> Wai.Response
 ok = mkResponse status200
 
-created :: (ToResponseContent a) => a -> Request b -> Wai.Response
+created :: (ToResponseContent a, Request r) => a -> r -> Wai.Response
 created = mkResponse status201
 
-badRequest :: (ToResponseContent a) => a -> Request b -> Wai.Response
+badRequest :: (ToResponseContent a, Request r) => a -> r -> Wai.Response
 badRequest = mkResponse status400
 
-notFound :: (ToResponseContent a) => a -> Request b -> Wai.Response
+notFound :: (ToResponseContent a, Request r) => a -> r -> Wai.Response
 notFound = mkResponse status404
 
-unauthorized :: (ToResponseContent a) => a -> Request b -> Wai.Response
+unauthorized :: (ToResponseContent a, Request r) => a -> r -> Wai.Response
 unauthorized = mkResponse status401
 
-forbidden :: (ToResponseContent a) => a -> Request b -> Wai.Response
+forbidden :: (ToResponseContent a, Request r) => a -> r -> Wai.Response
 forbidden = mkResponse status403
 
-unprocessableEntity :: (ToResponseContent a) => a -> Request b -> Wai.Response
+unprocessableEntity :: (ToResponseContent a, Request r) => a -> r -> Wai.Response
 unprocessableEntity = mkResponse status422

@@ -3,7 +3,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Micron.Request (Request (..), FromRequestBody (..), FromQueryString (..), Parseable (..)) where
+module Micron.Request
+  ( Request (..),
+    BaseRequest (..),
+    FromRequestBody (..),
+    FromQueryString (..),
+    Parseable (..),
+  )
+where
 
 import Data.ByteString qualified as B
 import Data.ByteString.Lazy qualified as BL
@@ -29,15 +36,20 @@ import Network.HTTP.Types (Method, RequestHeaders)
 
 type QueryString = Map B.ByteString T.Text
 
-data Request a = Request
+class Request a where
+  getBaseRequest :: a -> BaseRequest
+
+data BaseRequest = BaseRequest
   { path :: B.ByteString,
     method :: Method,
     headers :: RequestHeaders,
     params :: Map T.Text T.Text,
     queryString :: QueryString,
-    extraData :: a,
     requestBody :: BL.ByteString
   }
+
+instance Request BaseRequest where
+  getBaseRequest = id
 
 class FromRequestBody a where
   fromAppJson :: BL.ByteString -> Maybe a

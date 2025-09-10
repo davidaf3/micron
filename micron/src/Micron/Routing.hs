@@ -25,7 +25,7 @@ import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Micron.Error (BaseErrorType (..), Error (..), errorRes)
-import Micron.Request (Request)
+import Micron.Request (BaseRequest)
 import Network.HTTP.Types.Method
   ( Method,
     methodConnect,
@@ -40,13 +40,13 @@ import Network.HTTP.Types.Method
   )
 import Network.Wai qualified as Wai
 
-type Handler a = Request a -> IO Wai.Response
+type Handler r = r -> IO Wai.Response
 
 data SpecialPathKind = NotFoundPath
 
 data Path = SpecialPath SpecialPathKind | PathParts [PathPart]
 
-data Route a = Route Method Path (Handler a)
+data Route r = Route Method Path (Handler r)
 
 class ToPath a where
   toPath :: a -> Path
@@ -63,11 +63,11 @@ instance ToPath [PathPart] where
 instance ToPath (String, [PathPart]) where
   toPath = PathParts . fromExact
 
-data Paths a
-  = PathTree (Maybe (Handler a)) (Map T.Text (Paths a))
-  | PathParam (Set T.Text) (Maybe (Handler a)) (Paths a)
+data Paths
+  = PathTree (Maybe (Handler BaseRequest)) (Map T.Text Paths)
+  | PathParam (Set T.Text) (Maybe (Handler BaseRequest)) Paths
 
-newtype SpecialPaths a = SpecialPaths {notFoundHandler :: Handler a}
+newtype SpecialPaths = SpecialPaths {notFoundHandler :: Handler BaseRequest}
 
 data PathPart = Exact T.Text | Param T.Text
 
@@ -95,21 +95,21 @@ x ./: ys = (x, fromParam ys)
 
 infixl 8 $./
 
-($./) :: (ToPath a) => Method -> a -> (Handler b -> Route b)
+($./) :: (ToPath a) => Method -> a -> (Handler r -> Route r)
 method $./ path = Route method $ toPath path
 
 infixl 8 $./:
 
-($./:) :: (ToPathParts a) => Method -> a -> (Handler b -> Route b)
+($./:) :: (ToPathParts a) => Method -> a -> (Handler r -> Route r)
 method $./: path = Route method $ toPath $ fromParam path
 
-defaultSpecialPaths :: SpecialPaths a
+defaultSpecialPaths :: SpecialPaths
 defaultSpecialPaths =
   SpecialPaths
     { notFoundHandler = return . errorRes (Error NotFound "Not found")
     }
 
-defaultSpecialPathsByMethod :: Map Method (SpecialPaths a)
+defaultSpecialPathsByMethod :: Map Method SpecialPaths
 defaultSpecialPathsByMethod =
   let methods =
         [ methodConnect,
@@ -136,7 +136,7 @@ put = methodPut
 delete :: Method
 delete = methodDelete
 
-mkPaths :: [Route a] -> (Map Method (Paths a), Map Method (SpecialPaths a))
+mkPaths :: [Route BaseRequest] -> (Map Method Paths, Map Method SpecialPaths)
 mkPaths = foldl insertPath (Map.empty, defaultSpecialPathsByMethod)
   where
     insertPath (ps, sps) (Route method (SpecialPath kind) h) =
@@ -144,11 +144,11 @@ mkPaths = foldl insertPath (Map.empty, defaultSpecialPathsByMethod)
     insertPath (ps, sps) (Route method (PathParts path) h) =
       (Map.alter (Just . addPath path h) method ps, sps)
 
-addSpecialPath :: SpecialPathKind -> Handler a -> Maybe (SpecialPaths a) -> SpecialPaths a
+addSpecialPath :: SpecialPathKind -> Handler BaseRequest -> Maybe SpecialPaths -> SpecialPaths
 addSpecialPath kind h Nothing = addSpecialPath kind h $ Just defaultSpecialPaths
 addSpecialPath NotFoundPath h (Just sps) = sps {notFoundHandler = h}
 
-addPath :: [PathPart] -> Handler a -> Maybe (Paths a) -> Paths a
+addPath :: [PathPart] -> Handler BaseRequest -> Maybe Paths -> Paths
 addPath path h Nothing = addPath path h $ Just (PathTree Nothing Map.empty)
 addPath path h (Just root) = addPath' path root
   where
@@ -162,7 +162,7 @@ addPath path h (Just root) = addPath' path root
       Param n -> PathParam (Set.singleton n) ph $ addEmpty ps
       Exact n -> PathTree ph $ Map.insertWith (const $ addPath' ps) n (addEmpty ps) cs
 
-matchRoute :: Method -> [T.Text] -> Map Method (Paths a) -> Maybe (Handler a, [(T.Text, T.Text)])
+matchRoute :: Method -> [T.Text] -> Map Method Paths -> Maybe (Handler BaseRequest, [(T.Text, T.Text)])
 matchRoute method path byMethod = Map.lookup method byMethod >>= matchRoute' [] path
   where
     matchRoute' _ [] (PathParam _ Nothing _) = Nothing
