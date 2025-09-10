@@ -8,7 +8,6 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Micron.Error (Error (Error), ErrorType (responseMaker))
-import Micron.Middleware (MRoute, addMiddlewares)
 import Micron.Request (Request (Request))
 import Micron.Routing
   ( Handler,
@@ -48,8 +47,8 @@ infixl 9 ~.
 (~.) :: (Monad m) => (a -> b -> m c) -> (c -> b -> m d) -> a -> b -> m d
 (~.) f g h req = f h req >>= flip g req
 
-app :: [Route a] -> [[MRoute a]] -> a -> Wai.Application
-app hRoutes mRoutes defaultExtra = app' $! addMiddlewares (concat mRoutes) $! mkPaths hRoutes
+app :: [Route a] -> a -> Wai.Application
+app routes defaultExtra = app' $! mkPaths routes
   where
     app' (ps, sps) waiReq respond =
       let method = Wai.requestMethod waiReq
