@@ -15,4 +15,4 @@ import Micron.Extractor
 import Micron.Middleware (Middleware, logReq, withMiddleware)
 import Micron.Request (FromQueryString (..), FromRequestBody (..), Request (..), BaseRequest (..), parseText)
 import Micron.Response
-import Micron.Routing (SpecialPathKind (..), delete, get, post, put, ($./), ($./:), (./), (./:))
+import Micron.Routing (SpecialPath (..), delete, get, post, put, ($./), ($./:), (./), (./:))

@@ -16,6 +16,7 @@ import Micron
     put,
     query,
     withMiddleware,
+    defaultRoutes,
     (!|>),
     (!~>),
     ($./),
@@ -57,3 +58,4 @@ main = do
               put     $./ "post" ./: "id" $ param "id" ~. body ~. user !~> updatePost !|> ok,
               delete  $./ "post" ./: "id" $ param "id" ~. user !~> deletePost !|> ok
             ]
+          ++ defaultRoutes

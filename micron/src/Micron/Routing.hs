@@ -4,15 +4,14 @@ module Micron.Routing
     put,
     delete,
     mkPaths,
-    matchRoute,
-    defaultSpecialPaths,
+    matchPath,
+    matchSpecialPath,
     (./),
     (./:),
     ($./),
     ($./:),
     Paths (..),
-    SpecialPaths (..),
-    SpecialPathKind (..),
+    SpecialPath (..),
     Path (..),
     Handler,
     Route (..),
@@ -21,30 +20,25 @@ where
 
 import Data.Map (Map)
 import Data.Map qualified as Map
+import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text qualified as T
-import Micron.Error (BaseErrorType (..), Error (..), errorRes)
 import Micron.Request (BaseRequest)
 import Network.HTTP.Types.Method
   ( Method,
-    methodConnect,
     methodDelete,
     methodGet,
-    methodHead,
-    methodOptions,
-    methodPatch,
     methodPost,
     methodPut,
-    methodTrace,
   )
 import Network.Wai qualified as Wai
 
 type Handler r = r -> IO Wai.Response
 
-data SpecialPathKind = NotFoundPath
+data SpecialPath = NotFoundPath deriving (Eq, Ord)
 
-data Path = SpecialPath SpecialPathKind | PathParts [PathPart]
+data Path = SpecialPath SpecialPath | PathParts [PathPart]
 
 data Route r = Route Method Path (Handler r)
 
@@ -54,7 +48,7 @@ class ToPath a where
 instance ToPath String where
   toPath = PathParts . fromExact
 
-instance ToPath SpecialPathKind where
+instance ToPath SpecialPath where
   toPath = SpecialPath
 
 instance ToPath [PathPart] where
@@ -66,8 +60,6 @@ instance ToPath (String, [PathPart]) where
 data Paths
   = PathTree (Maybe (Handler BaseRequest)) (Map T.Text Paths)
   | PathParam (Set T.Text) (Maybe (Handler BaseRequest)) Paths
-
-newtype SpecialPaths = SpecialPaths {notFoundHandler :: Handler BaseRequest}
 
 data PathPart = Exact T.Text | Param T.Text
 
@@ -103,27 +95,6 @@ infixl 8 $./:
 ($./:) :: (ToPathParts a) => Method -> a -> (Handler r -> Route r)
 method $./: path = Route method $ toPath $ fromParam path
 
-defaultSpecialPaths :: SpecialPaths
-defaultSpecialPaths =
-  SpecialPaths
-    { notFoundHandler = return . errorRes (Error NotFound "Not found")
-    }
-
-defaultSpecialPathsByMethod :: Map Method SpecialPaths
-defaultSpecialPathsByMethod =
-  let methods =
-        [ methodConnect,
-          methodDelete,
-          methodGet,
-          methodHead,
-          methodOptions,
-          methodPatch,
-          methodPost,
-          methodPut,
-          methodTrace
-        ]
-   in Map.fromList $ map (,defaultSpecialPaths) methods
-
 get :: Method
 get = methodGet
 
@@ -136,17 +107,16 @@ put = methodPut
 delete :: Method
 delete = methodDelete
 
-mkPaths :: [Route BaseRequest] -> (Map Method Paths, Map Method SpecialPaths)
-mkPaths = foldl insertPath (Map.empty, defaultSpecialPathsByMethod)
+type PathsMap = Map Method Paths
+
+type SpecialPathsMap = Map (Method, SpecialPath) (Handler BaseRequest)
+
+mkPaths :: [Route BaseRequest] -> (PathsMap, SpecialPathsMap)
+mkPaths = foldl insertPath (Map.empty, Map.empty)
   where
-    insertPath (ps, sps) (Route method (SpecialPath kind) h) =
-      (ps, Map.alter (Just . addSpecialPath kind h) method sps)
+    insertPath (ps, sps) (Route method (SpecialPath sp) h) = (ps, Map.insert (method, sp) h sps)
     insertPath (ps, sps) (Route method (PathParts path) h) =
       (Map.alter (Just . addPath path h) method ps, sps)
-
-addSpecialPath :: SpecialPathKind -> Handler BaseRequest -> Maybe SpecialPaths -> SpecialPaths
-addSpecialPath kind h Nothing = addSpecialPath kind h $ Just defaultSpecialPaths
-addSpecialPath NotFoundPath h (Just sps) = sps {notFoundHandler = h}
 
 addPath :: [PathPart] -> Handler BaseRequest -> Maybe Paths -> Paths
 addPath path h Nothing = addPath path h $ Just (PathTree Nothing Map.empty)
@@ -162,12 +132,25 @@ addPath path h (Just root) = addPath' path root
       Param n -> PathParam (Set.singleton n) ph $ addEmpty ps
       Exact n -> PathTree ph $ Map.insertWith (const $ addPath' ps) n (addEmpty ps) cs
 
-matchRoute :: Method -> [T.Text] -> Map Method Paths -> Maybe (Handler BaseRequest, [(T.Text, T.Text)])
-matchRoute method path byMethod = Map.lookup method byMethod >>= matchRoute' [] path
+matchPath :: Method -> [T.Text] -> PathsMap -> Maybe (Handler BaseRequest, Map T.Text T.Text)
+matchPath method path pathsMap = do
+  ps <- Map.lookup method pathsMap
+  (h, args) <- matchPath' [] path ps
+  return (h, Map.fromList args)
   where
-    matchRoute' _ [] (PathParam _ Nothing _) = Nothing
-    matchRoute' _ [] (PathTree Nothing _) = Nothing
-    matchRoute' args [] (PathParam _ (Just h) _) = Just (h, args)
-    matchRoute' args [] (PathTree (Just h) _) = Just (h, args)
-    matchRoute' args (p : ps) (PathParam ns _ c) = matchRoute' (args ++ map (,p) (Set.elems ns)) ps c
-    matchRoute' args (p : ps) (PathTree _ cs) = Map.lookup p cs >>= matchRoute' args ps
+    matchPath' _ [] (PathParam _ Nothing _) = Nothing
+    matchPath' _ [] (PathTree Nothing _) = Nothing
+    matchPath' args [] (PathParam _ (Just h) _) = Just (h, args)
+    matchPath' args [] (PathTree (Just h) _) = Just (h, args)
+    matchPath' args (p : ps) (PathParam ns _ c) = matchPath' (args ++ map (,p) (Set.elems ns)) ps c
+    matchPath' args (p : ps) (PathTree _ cs) = Map.lookup p cs >>= matchPath' args ps
+
+matchSpecialPath ::
+  Method ->
+  SpecialPath ->
+  SpecialPathsMap ->
+  Handler BaseRequest ->
+  (Handler BaseRequest, Map T.Text T.Text)
+matchSpecialPath method sp specialPathsMap defaultH =
+  let h = fromMaybe defaultH $ Map.lookup (method, sp) specialPathsMap
+   in (h, Map.empty)
