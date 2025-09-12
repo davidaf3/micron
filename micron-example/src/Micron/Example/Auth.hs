@@ -14,17 +14,21 @@ import Micron
     Middleware,
     Request (..),
     errorRes,
+    mkInfallibleExtractor,
   )
 import Micron.Example.Resource.User.Model (User)
 import Micron.Example.Resource.UserToken.Service (getUserByToken)
 
-data AuthenticatedRequest r = AuthenticatedRequest User r
+data AuthenticatedRequest r = AuthenticatedRequest
+  { authenticatedUser :: User,
+    inner :: r
+  }
 
 instance (Request r) => Request (AuthenticatedRequest r) where
-  getBaseRequest (AuthenticatedRequest _ req) = getBaseRequest req
+  getBaseRequest = getBaseRequest . inner
 
-user :: (User -> b) -> AuthenticatedRequest r -> Either Error b
-user h (AuthenticatedRequest u _) = Right $ h u
+user :: (User -> h) -> AuthenticatedRequest r -> Either Error h
+user = mkInfallibleExtractor authenticatedUser
 
 authenticated :: (Request r) => Middleware (AuthenticatedRequest r) r
 authenticated h req = do

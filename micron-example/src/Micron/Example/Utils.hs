@@ -1,6 +1,6 @@
 module Micron.Example.Utils (FromJSONVia (..), ToJSONVia (..)) where
 
-import Data.Aeson (FromJSON, ToJSON, decode, encode)
+import Data.Aeson (FromJSON, ToJSON, eitherDecode, encode)
 import Micron (FromRequestBody (fromAppJson), ToResponseContent (toAppJson))
 
 newtype ToJSONVia a = ToJSONVia a
@@ -11,4 +11,4 @@ instance (ToJSON a) => ToResponseContent (ToJSONVia a) where
 newtype FromJSONVia a = FromJSONVia a
 
 instance (FromJSON a) => FromRequestBody (FromJSONVia a) where
-  fromAppJson x = decode x >>= (Just . FromJSONVia)
+  fromAppJson x = FromJSONVia <$> eitherDecode x

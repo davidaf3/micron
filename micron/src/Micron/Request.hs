@@ -52,9 +52,9 @@ instance Request BaseRequest where
   getBaseRequest = id
 
 class FromRequestBody a where
-  fromAppJson :: BL.ByteString -> Maybe a
-  default fromAppJson :: BL.ByteString -> Maybe a
-  fromAppJson _ = Nothing
+  fromAppJson :: BL.ByteString -> Either String a
+  default fromAppJson :: BL.ByteString -> Either String a
+  fromAppJson _ = Left "application/json Content-Type not supported"
 
 class Parseable a where
   parseText :: T.Text -> Either String a

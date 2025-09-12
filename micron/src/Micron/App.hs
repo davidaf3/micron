@@ -1,4 +1,4 @@
-module Micron.App ((|>), (!|>), (~>), (!~>), (~.), app, defaultRoutes) where
+module Micron.App ((|>), (!|>), app, defaultRoutes) where
 
 import Data.Functor ((<&>))
 import Data.Map (Map)
@@ -30,34 +30,19 @@ import Network.HTTP.Types.Method
   )
 import Network.Wai qualified as Wai
 
-infixl 2 ~>
-
-(~>) :: (a -> r -> Either Error (IO b)) -> a -> r -> IO (Either Error b)
-(~>) i h req = sequence $ i h req
-
-infixl 2 !~>
-
-(!~>) :: (a -> r -> Either Error (IO (Either Error b))) -> a -> r -> IO (Either Error b)
-(!~>) i h req = either (return . Left) id $ i h req
-
 infixr 1 |>
 
-(|>) :: (r -> IO b) -> (b -> r -> Wai.Response) -> r -> IO Wai.Response
+(|>) :: (r -> IO o) -> (o -> r -> Wai.Response) -> r -> IO Wai.Response
 (|>) h o req = h req <&> flip o req
 
 infixr 1 !|>
 
-(!|>) :: (Request r) => (r -> IO (Either Error b)) -> (b -> r -> Wai.Response) -> r -> IO Wai.Response
+(!|>) :: (Request r) => (r -> IO (Either Error o)) -> (o -> r -> Wai.Response) -> r -> IO Wai.Response
 (!|>) h o req = do
   ex <- h req
   return $ case ex of
     Right x -> o x req
     Left e@(Error t _) -> responseMaker t e req
-
-infixl 9 ~.
-
-(~.) :: (Monad m) => (a -> b -> m c) -> (c -> b -> m d) -> a -> b -> m d
-(~.) f g h req = f h req >>= flip g req
 
 app :: [Route BaseRequest] -> Wai.Application
 app routes = app' $! mkPaths routes

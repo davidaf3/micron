@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Micron.Example.Resource.User.Filters (UserFilters (..), applyFilters) where
 
@@ -20,9 +21,7 @@ data UserFilters = UserFilters
   { name :: Maybe T.Text,
     names :: Maybe [T.Text]
   }
-  deriving (Generic)
-
-instance FromQueryString UserFilters
+  deriving (Generic, FromQueryString)
 
 applyFilters :: UserFilters -> Row a User -> Query a ()
 applyFilters filters user = do
