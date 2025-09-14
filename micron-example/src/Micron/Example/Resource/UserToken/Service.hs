@@ -2,14 +2,14 @@
 
 module Micron.Example.Resource.UserToken.Service (addUserToken, getUserByToken) where
 
+import Control.Monad.IO.Class (liftIO)
 import Data.Functor ((<&>))
 import Data.Maybe (listToMaybe)
 import Data.Text qualified as T
 import Data.UUID (toText)
 import Data.UUID.V4 (nextRandom)
 import Database.Selda
-  ( MonadIO (liftIO),
-    insert,
+  ( insert,
     literal,
     query,
     restrict,
@@ -17,18 +17,19 @@ import Database.Selda
     (!),
     (.==),
   )
+import Micron.Example.Utils (AppM)
 import Micron.Example.Db (withDb)
 import Micron.Example.Resource.User.Model (User (..), users)
 import Micron.Example.Resource.UserToken.Model (UserToken (UserToken), userTokens)
 
-addUserToken :: User -> IO UserToken
+addUserToken :: User -> AppM UserToken
 addUserToken user = withDb $ do
   token <- liftIO nextRandom <&> toText
   let userToken = UserToken token (userId user)
   _ <- insert userTokens [userToken]
   return userToken
 
-getUserByToken :: T.Text -> IO (Maybe User)
+getUserByToken :: T.Text -> AppM (Maybe User)
 getUserByToken token = withDb $ do
   matchingUsers <- query $ do
     user <- select users

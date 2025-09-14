@@ -4,6 +4,9 @@
 
 module Micron.Example.Resource.User.Service (getUsers, signUp, login) where
 
+import Control.Monad (unless)
+import Control.Monad.Except (MonadError (throwError))
+import Control.Monad.IO.Class (liftIO)
 import Data.UUID (toText)
 import Data.UUID.V4 (nextRandom)
 import Database.Selda
@@ -22,8 +25,9 @@ import Micron.Example.Resource.User.Filters (UserFilters, applyFilters)
 import Micron.Example.Resource.User.Model (LoginData (..), User (..), UserView (UserView), users)
 import Micron.Example.Resource.UserToken.Model (UserToken)
 import Micron.Example.Resource.UserToken.Service (addUserToken)
+import Micron.Example.Utils (AppM)
 
-getUsers :: UserFilters -> IO [UserView]
+getUsers :: UserFilters -> AppM [UserView]
 getUsers filters = withDb $ do
   us <- query $ do
     user <- select users
@@ -31,21 +35,20 @@ getUsers filters = withDb $ do
     return user
   return $ map (\User {userId, userName} -> UserView userId userName) us
 
-signUp :: LoginData -> IO (Either Error UserView)
+signUp :: LoginData -> AppM UserView
 signUp LoginData {userName, password} = do
   usersSameName <- withDb $ query $ do
     userSameName <- select users
     restrict (userSameName ! #userName .== literal userName)
     return userSameName
-  if not $ null usersSameName
-    then return $ Left $ Error InvalidArgument "Username already taken"
-    else do
-      newUserId <- toText <$> nextRandom
-      hashedPass <- hashPassword password
-      _ <- withDb $ insert users [User newUserId hashedPass userName]
-      return $ Right $ UserView newUserId userName
+  unless (null usersSameName) $
+    throwError (Error InvalidArgument "Username already taken")
+  newUserId <- toText <$> liftIO nextRandom
+  hashedPass <- liftIO $ hashPassword password
+  _ <- withDb $ insert users [User newUserId hashedPass userName]
+  return $ UserView newUserId userName
 
-login :: LoginData -> IO (Either Error UserToken)
+login :: LoginData -> AppM UserToken
 login LoginData {userName, password} = do
   signedUpUsers <- withDb $ query $ do
     signedUpUser <- select users
@@ -53,6 +56,5 @@ login LoginData {userName, password} = do
     return signedUpUser
   case signedUpUsers of
     [signedUpUser@User {password = signedUpPassword}]
-      | checkPassword password signedUpPassword ->
-          Right <$> addUserToken signedUpUser
-    _ -> return $ Left $ Error Unauthorized "Invalid credentials"
+      | checkPassword password signedUpPassword -> addUserToken signedUpUser
+    _ -> throwError $ Error Unauthorized "Invalid credentials"

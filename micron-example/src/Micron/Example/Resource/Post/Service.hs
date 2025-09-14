@@ -10,6 +10,9 @@ module Micron.Example.Resource.Post.Service
   )
 where
 
+import Control.Monad (when)
+import Control.Monad.Except (throwError)
+import Control.Monad.IO.Class (liftIO)
 import Data.Functor ((<&>))
 import Data.Text qualified as T
 import Data.UUID (toText)
@@ -32,51 +35,49 @@ import Micron (BaseErrorType (..), Error (Error))
 import Micron.Example.Db (withDb)
 import Micron.Example.Resource.Post.Model (Post (Post), PostInput (..), posts)
 import Micron.Example.Resource.User.Model (User (..))
+import Micron.Example.Utils (AppM)
 
-addPost :: PostInput -> User -> IO (Either Error Post)
-addPost input (User {userId}) = do
-  post <- nextRandom <&> (\pId -> Post (toText pId) userId (content input))
+addPost :: PostInput -> User -> AppM Post
+addPost (PostInput {content}) (User {userId}) = do
+  post <- liftIO $ nextRandom <&> (\pId -> Post (toText pId) userId content)
   _ <- withDb $ do insert posts [post]
-  return $ Right post
+  return post
 
-getPost :: T.Text -> IO (Either Error Post)
+getPost :: T.Text -> AppM Post
 getPost pId = do
   foundPosts <- withDb $ query $ do
     post <- select posts
     restrict (post ! #postId .== literal pId)
     return post
   case foundPosts of
-    [post] -> return $ Right post
-    _ -> return $ Left $ Error NotFound "Post not found"
+    [post] -> return post
+    _ -> throwError $ Error NotFound "Post not found"
 
-getPostsByUser :: T.Text -> IO [Post]
+getPostsByUser :: T.Text -> AppM [Post]
 getPostsByUser uId = do
   withDb $ query $ do
     post <- select posts
     restrict (post ! #userId .== literal uId)
     return post
 
-updatePost :: T.Text -> PostInput -> User -> IO (Either Error Post)
-updatePost pId updated (User {userId}) = do
+updatePost :: T.Text -> PostInput -> User -> AppM Post
+updatePost pId (PostInput {content = newContent}) (User {userId}) = do
   nUpdated <-
     withDb $
       update
         posts
         (\post -> post ! #postId .== literal pId .&& post ! #userId .== literal userId)
-        (\post -> post `with` [#content := literal (content updated)])
-  return $
-    if nUpdated == 0
-      then Left $ Error NotFound "Post not found"
-      else Right $ Post pId userId (content updated)
+        (\post -> post `with` [#content := literal newContent])
+  when (nUpdated == 0) $
+    throwError (Error NotFound "Post not found")
+  return $ Post pId userId newContent
 
-deletePost :: T.Text -> User -> IO (Either Error ())
+deletePost :: T.Text -> User -> AppM ()
 deletePost pId (User {userId}) = do
   nDeleted <-
     withDb $
       deleteFrom
         posts
         (\post -> post ! #postId .== literal pId .&& post ! #userId .== literal userId)
-  return $
-    if nDeleted == 0
-      then Left $ Error NotFound "Post not found"
-      else Right ()
+  when (nDeleted == 0) $
+    throwError (Error NotFound "Post not found")

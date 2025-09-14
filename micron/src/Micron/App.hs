@@ -1,5 +1,6 @@
-module Micron.App ((|>), (!|>), app, defaultRoutes) where
+module Micron.App ((|>), app, defaultRoutes) where
 
+import Control.Monad.Except (ExceptT, runExceptT)
 import Data.Functor ((<&>))
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -32,19 +33,10 @@ import Network.Wai qualified as Wai
 
 infixr 1 |>
 
-(|>) :: (r -> IO o) -> (o -> r -> Wai.Response) -> r -> IO Wai.Response
+(|>) :: (Monad m) => (r -> m o) -> (o -> r -> Wai.Response) -> r -> m Wai.Response
 (|>) h o req = h req <&> flip o req
 
-infixr 1 !|>
-
-(!|>) :: (Request r) => (r -> IO (Either Error o)) -> (o -> r -> Wai.Response) -> r -> IO Wai.Response
-(!|>) h o req = do
-  ex <- h req
-  return $ case ex of
-    Right x -> o x req
-    Left e@(Error t _) -> responseMaker t e req
-
-app :: [Route BaseRequest] -> Wai.Application
+app :: [Route (ExceptT Error IO) BaseRequest] -> Wai.Application
 app routes = app' $! mkPaths routes
   where
     app' (ps, sps) waiReq respond =
@@ -55,7 +47,12 @@ app routes = app' $! mkPaths routes
           (h, args) = case matchPath method path ps of
             Just found -> found
             Nothing -> matchSpecialPath method NotFoundPath sps defaultNotFoundHandler
-       in mkReq waiReq args >>= h >>= respond
+       in do
+            req <- mkReq waiReq args
+            eitherRes <- runExceptT (h req)
+            respond $ case eitherRes of
+              Right res -> res
+              Left e@(Error t _) -> responseMaker t e req
 
 mkReq :: Wai.Request -> Map T.Text T.Text -> IO BaseRequest
 mkReq waiReq args =
@@ -68,10 +65,10 @@ mkReq waiReq args =
     mapQueryItem (x, Just y) = Just (x, decodeUtf8 y)
     mapQueryItem (_, Nothing) = Nothing
 
-defaultNotFoundHandler :: Handler BaseRequest
+defaultNotFoundHandler :: (Monad m, Request r) => Handler m r
 defaultNotFoundHandler = return . errorRes (Error NotFound "Not found")
 
-defaultRoutes :: [Route BaseRequest]
+defaultRoutes :: (Monad m, Request r) => [Route m r]
 defaultRoutes =
   let allMethods =
         [ methodConnect,

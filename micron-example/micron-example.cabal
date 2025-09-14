@@ -43,6 +43,7 @@ library
       micron
     , aeson >=2.2
     , base >=4.7 && <5
+    , mtl
     , bytestring
     , containers
     , selda

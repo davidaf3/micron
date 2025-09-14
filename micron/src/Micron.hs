@@ -13,6 +13,6 @@ import Micron.App
 import Micron.Error (BaseErrorType (..), Error (..), ErrorType (responseMaker), errorRes)
 import Micron.Extractor
 import Micron.Middleware (Middleware, logReq, withMiddleware)
-import Micron.Request (FromQueryString (..), FromRequestBody (..), Request (..), BaseRequest (..), parseText)
+import Micron.Request (BaseRequest (..), FromQueryString (..), FromRequestBody (..), Request (..), parseText)
 import Micron.Response
 import Micron.Routing (SpecialPath (..), delete, get, post, put, ($./), ($./:), (./), (./:))

@@ -1,8 +1,8 @@
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Micron.Extractor
   ( (~>),
-    (!~>),
     (~.),
     mkExtractor,
     mkInfallibleExtractor,
@@ -12,6 +12,7 @@ module Micron.Extractor
   )
 where
 
+import Control.Monad.Except (throwError, MonadError)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
@@ -26,29 +27,25 @@ import Micron.Request
     Request (..),
   )
 import Network.HTTP.Types (hContentType)
+import Control.Monad (join)
 
 infixl 2 ~>
 
-(~>) :: (h -> r -> Either Error (IO o)) -> h -> r -> IO (Either Error o)
-(~>) i h req = sequence $ i h req
-
-infixl 2 !~>
-
-(!~>) :: (h -> r -> Either Error (IO (Either Error o))) -> h -> r -> IO (Either Error o)
-(!~>) i h req = either (return . Left) id $ i h req
+(~>) :: (Monad m) => (h -> r -> m (m o)) -> h -> r -> m o
+(~>) exs h req = join (exs h req)
 
 infixl 9 ~.
 
 (~.) :: (Monad m) => (h -> r -> m h') -> (h' -> r -> m h'') -> h -> r -> m h''
 (~.) exA exB h req = exA h req >>= flip exB req
 
-mkExtractor :: (r -> Either e a) -> (e -> Error) -> (a -> h') -> r -> Either Error h'
+mkExtractor :: (MonadError Error m) => (r -> Either e a) -> (e -> Error) -> (a -> h') -> r -> m h'
 mkExtractor f toErr h req = case f req of
-  Right x -> Right $ h x
-  Left err -> Left $ toErr err
+  Right x -> return $ h x
+  Left err -> throwError $ toErr err
 
-mkInfallibleExtractor :: (r -> a) -> (a -> h') -> r -> Either Error h'
-mkInfallibleExtractor f h req = Right $ h (f req)
+mkInfallibleExtractor :: (Monad m) => (r -> a) -> (a -> h') -> r -> m h'
+mkInfallibleExtractor f h req = return $ h (f req)
 
 extractParam :: (Request r, Parseable a) => String -> (r -> Either String a)
 extractParam name req =
@@ -56,7 +53,7 @@ extractParam name req =
    in parseText $ fromMaybe T.empty arg
 
 class Param h h' | h -> h' where
-  param :: (Request r) => String -> h -> r -> Either Error h'
+  param :: (MonadError Error m, Request r) => String -> h -> r -> m h'
 
 instance {-# OVERLAPPABLE #-} (Parseable a) => Param (a -> h') h' where
   param name = mkExtractor (extractParam name) toErr
@@ -70,7 +67,7 @@ extractQuery :: (Request r, FromQueryString a) => r -> Either (Map String String
 extractQuery = fromQueryString . queryString . getBaseRequest
 
 class Query h h' | h -> h' where
-  query :: (Request r) => h -> r -> Either Error h'
+  query :: (MonadError Error m, Request r) => h -> r -> m h'
 
 instance {-# OVERLAPPABLE #-} (FromQueryString a) => Query (a -> h') h' where
   query = mkExtractor extractQuery toErr
@@ -90,7 +87,7 @@ extractBody req =
           | otherwise -> fromAppJson reqBody
 
 class Body h h' | h -> h' where
-  body :: (Request r) => h -> r -> Either Error h'
+  body :: (MonadError Error m, Request r) => h -> r -> m h'
 
 instance {-# OVERLAPPABLE #-} (FromRequestBody a) => Body (a -> h') h' where
   body = mkExtractor extractBody toErr

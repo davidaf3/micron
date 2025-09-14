@@ -18,6 +18,7 @@ import Micron
   )
 import Micron.Example.Resource.User.Model (User)
 import Micron.Example.Resource.UserToken.Service (getUserByToken)
+import Micron.Example.Utils (MonadApp (..))
 
 data AuthenticatedRequest r = AuthenticatedRequest
   { authenticatedUser :: User,
@@ -27,16 +28,16 @@ data AuthenticatedRequest r = AuthenticatedRequest
 instance (Request r) => Request (AuthenticatedRequest r) where
   getBaseRequest = getBaseRequest . inner
 
-user :: (User -> h) -> AuthenticatedRequest r -> Either Error h
+user :: (Monad m) => (User -> h) -> AuthenticatedRequest r -> m h
 user = mkInfallibleExtractor authenticatedUser
 
-authenticated :: (Request r) => Middleware (AuthenticatedRequest r) r
+authenticated :: (MonadApp m, Request r) => Middleware m (AuthenticatedRequest r) m r
 authenticated h req = do
   let auth = find ((== "Authorization") . fst) $ headers $ getBaseRequest req
   case auth >>= BC.stripPrefix "Bearer " . snd <&> decodeUtf8 of
     Nothing ->
       return $ errorRes (Error Unauthorized "Invalid or missing Authorization header") req
     (Just token) ->
-      getUserByToken token >>= \case
+      liftAppM (getUserByToken token) >>= \case
         Just u -> h $ AuthenticatedRequest u req
         Nothing -> return $ errorRes (Error Forbidden "Forbidden") req
