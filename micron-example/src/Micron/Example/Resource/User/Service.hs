@@ -1,4 +1,5 @@
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 
@@ -6,11 +7,12 @@ module Micron.Example.Resource.User.Service (getUsers, signUp, login) where
 
 import Control.Monad (unless)
 import Control.Monad.Except (MonadError (throwError))
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.UUID (toText)
 import Data.UUID.V4 (nextRandom)
 import Database.Selda
-  ( insert,
+  ( MonadMask,
+    insert,
     literal,
     query,
     restrict,
@@ -25,9 +27,8 @@ import Micron.Example.Resource.User.Filters (UserFilters, applyFilters)
 import Micron.Example.Resource.User.Model (LoginData (..), User (..), UserView (UserView), users)
 import Micron.Example.Resource.UserToken.Model (UserToken)
 import Micron.Example.Resource.UserToken.Service (addUserToken)
-import Micron.Example.Utils (AppM)
 
-getUsers :: UserFilters -> AppM [UserView]
+getUsers :: (MonadIO m, MonadMask m) => UserFilters -> m [UserView]
 getUsers filters = withDb $ do
   us <- query $ do
     user <- select users
@@ -35,7 +36,7 @@ getUsers filters = withDb $ do
     return user
   return $ map (\User {userId, userName} -> UserView userId userName) us
 
-signUp :: LoginData -> AppM UserView
+signUp :: (MonadIO m, MonadMask m, MonadError Error m) => LoginData -> m UserView
 signUp LoginData {userName, password} = do
   usersSameName <- withDb $ query $ do
     userSameName <- select users
@@ -48,7 +49,7 @@ signUp LoginData {userName, password} = do
   _ <- withDb $ insert users [User newUserId hashedPass userName]
   return $ UserView newUserId userName
 
-login :: LoginData -> AppM UserToken
+login :: (MonadIO m, MonadMask m, MonadError Error m) => LoginData -> m UserToken
 login LoginData {userName, password} = do
   signedUpUsers <- withDb $ query $ do
     signedUpUser <- select users

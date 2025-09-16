@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedLabels #-}
 
@@ -11,14 +12,15 @@ module Micron.Example.Resource.Post.Service
 where
 
 import Control.Monad (when)
-import Control.Monad.Except (throwError)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Except (MonadError, throwError)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Functor ((<&>))
 import Data.Text qualified as T
 import Data.UUID (toText)
 import Data.UUID.V4 (nextRandom)
 import Database.Selda
   ( Assignment ((:=)),
+    MonadMask,
     deleteFrom,
     insert,
     literal,
@@ -35,15 +37,14 @@ import Micron (BaseErrorType (..), Error (Error))
 import Micron.Example.Db (withDb)
 import Micron.Example.Resource.Post.Model (Post (Post), PostInput (..), posts)
 import Micron.Example.Resource.User.Model (User (..))
-import Micron.Example.Utils (AppM)
 
-addPost :: PostInput -> User -> AppM Post
+addPost :: (MonadIO m, MonadMask m) => PostInput -> User -> m Post
 addPost (PostInput {content}) (User {userId}) = do
   post <- liftIO $ nextRandom <&> (\pId -> Post (toText pId) userId content)
   _ <- withDb $ do insert posts [post]
   return post
 
-getPost :: T.Text -> AppM Post
+getPost :: (MonadMask m, MonadIO m, MonadError Error m) => T.Text -> m Post
 getPost pId = do
   foundPosts <- withDb $ query $ do
     post <- select posts
@@ -53,14 +54,14 @@ getPost pId = do
     [post] -> return post
     _ -> throwError $ Error NotFound "Post not found"
 
-getPostsByUser :: T.Text -> AppM [Post]
+getPostsByUser :: (MonadMask m, MonadIO m) => T.Text -> m [Post]
 getPostsByUser uId = do
   withDb $ query $ do
     post <- select posts
     restrict (post ! #userId .== literal uId)
     return post
 
-updatePost :: T.Text -> PostInput -> User -> AppM Post
+updatePost :: (MonadIO m, MonadMask m, MonadError Error m) => T.Text -> PostInput -> User -> m Post
 updatePost pId (PostInput {content = newContent}) (User {userId}) = do
   nUpdated <-
     withDb $
@@ -72,7 +73,7 @@ updatePost pId (PostInput {content = newContent}) (User {userId}) = do
     throwError (Error NotFound "Post not found")
   return $ Post pId userId newContent
 
-deletePost :: T.Text -> User -> AppM ()
+deletePost :: (MonadIO m, MonadMask m, MonadError Error m) => T.Text -> User -> m ()
 deletePost pId (User {userId}) = do
   nDeleted <-
     withDb $

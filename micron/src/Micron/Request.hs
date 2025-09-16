@@ -5,7 +5,6 @@
 
 module Micron.Request
   ( Request (..),
-    BaseRequest (..),
     FromRequestBody (..),
     FromQueryString (..),
     Parseable (..),
@@ -36,10 +35,7 @@ import Network.HTTP.Types (Method, RequestHeaders)
 
 type QueryString = Map B.ByteString T.Text
 
-class Request a where
-  getBaseRequest :: a -> BaseRequest
-
-data BaseRequest = BaseRequest
+data Request = Request
   { path :: B.ByteString,
     method :: Method,
     headers :: RequestHeaders,
@@ -47,9 +43,6 @@ data BaseRequest = BaseRequest
     queryString :: QueryString,
     requestBody :: BL.ByteString
   }
-
-instance Request BaseRequest where
-  getBaseRequest = id
 
 class FromRequestBody a where
   fromAppJson :: BL.ByteString -> Either String a

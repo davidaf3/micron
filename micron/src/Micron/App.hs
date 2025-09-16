@@ -8,7 +8,7 @@ import Data.Maybe (mapMaybe)
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Micron.Error (BaseErrorType (NotFound), Error (Error), ErrorType (responseMaker), errorRes)
-import Micron.Request (BaseRequest (BaseRequest), Request)
+import Micron.Request (Request (Request))
 import Micron.Routing
   ( Handler,
     Route,
@@ -36,7 +36,7 @@ infixr 1 |>
 (|>) :: (Monad m) => (r -> m o) -> (o -> r -> Wai.Response) -> r -> m Wai.Response
 (|>) h o req = h req <&> flip o req
 
-app :: [Route (ExceptT Error IO) BaseRequest] -> Wai.Application
+app :: [Route (ExceptT Error IO)] -> Wai.Application
 app routes = app' $! mkPaths routes
   where
     app' (ps, sps) waiReq respond =
@@ -54,21 +54,21 @@ app routes = app' $! mkPaths routes
               Right res -> res
               Left e@(Error t _) -> responseMaker t e req
 
-mkReq :: Wai.Request -> Map T.Text T.Text -> IO BaseRequest
+mkReq :: Wai.Request -> Map T.Text T.Text -> IO Request
 mkReq waiReq args =
   let path = Wai.rawPathInfo waiReq
       method = Wai.requestMethod waiReq
       headers = Wai.requestHeaders waiReq
       queryString = Map.fromList $ mapMaybe mapQueryItem (Wai.queryString waiReq)
-   in Wai.strictRequestBody waiReq <&> BaseRequest path method headers args queryString
+   in Wai.strictRequestBody waiReq <&> Request path method headers args queryString
   where
     mapQueryItem (x, Just y) = Just (x, decodeUtf8 y)
     mapQueryItem (_, Nothing) = Nothing
 
-defaultNotFoundHandler :: (Monad m, Request r) => Handler m r
+defaultNotFoundHandler :: (Monad m) => Handler m
 defaultNotFoundHandler = return . errorRes (Error NotFound "Not found")
 
-defaultRoutes :: (Monad m, Request r) => [Route m r]
+defaultRoutes :: (Monad m) => [Route m]
 defaultRoutes =
   let allMethods =
         [ methodConnect,
