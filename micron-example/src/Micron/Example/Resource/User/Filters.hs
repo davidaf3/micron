@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
 module Micron.Example.Resource.User.Filters (UserFilters (..), applyFilters) where

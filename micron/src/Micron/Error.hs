@@ -6,6 +6,7 @@ import Micron.Response
   ( ToResponseContent (..),
     badRequest,
     forbidden,
+    internalServerError,
     notFound,
     unauthorized,
   )
@@ -24,10 +25,11 @@ instance ToResponseContent Error where
   toAppJson (Error _ msg) = Just $ fromString $ "{\"error\":\"" ++ msg ++ "\"}"
   toTextPlain (Error _ msg) = Just $ fromString msg
 
-data BaseErrorType = NotFound | InvalidArgument | Forbidden | Unauthorized
+data BaseErrorType = NotFound | InvalidArgument | Forbidden | Unauthorized | Unexpected
 
 instance ErrorType BaseErrorType where
   responseMaker NotFound = notFound
   responseMaker InvalidArgument = badRequest
   responseMaker Forbidden = forbidden
   responseMaker Unauthorized = unauthorized
+  responseMaker Unexpected = internalServerError

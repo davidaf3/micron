@@ -18,6 +18,7 @@ source-repository head
 library
   exposed-modules:
       Micron.Example.Auth
+      Micron.Example.Session
       Micron.Example.Db
       Micron.Example.Utils
       Micron.Example.Crypto
@@ -39,11 +40,14 @@ library
       MultiParamTypeClasses
       TypeSynonymInstances
       FlexibleInstances
+      FlexibleContexts
+      DataKinds
+      OverloadedLabels
   build-depends:
       micron
+    , micron-polysemy
     , aeson >=2.2
     , base >=4.7 && <5
-    , mtl
     , bytestring
     , containers
     , selda
@@ -51,6 +55,10 @@ library
     , text
     , uuid
     , password
+    , stm
+    , polysemy
+    , wai
+    , http-types
   default-language: Haskell2010
 
 executable micron-example
@@ -58,9 +66,14 @@ executable micron-example
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   default-extensions:
       ImportQualifiedPost
+      DataKinds
+      TypeApplications
   build-depends:
       micron
     , micron-example
+    , micron-polysemy
     , base >=4.7 && <5
     , warp
+    , stm
+    , polysemy
   default-language: Haskell2010

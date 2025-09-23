@@ -9,6 +9,7 @@ module Micron.Response
     unauthorized,
     forbidden,
     unprocessableEntity,
+    internalServerError,
   )
 where
 
@@ -29,6 +30,7 @@ import Network.HTTP.Types
     status404,
     status406,
     status422,
+    status500,
   )
 import Network.Wai qualified as Wai
 
@@ -104,3 +106,6 @@ forbidden = mkResponse status403
 
 unprocessableEntity :: (ToResponseContent a) => a -> Request -> Wai.Response
 unprocessableEntity = mkResponse status422
+
+internalServerError :: (ToResponseContent a) => a -> Request -> Wai.Response
+internalServerError = mkResponse status500

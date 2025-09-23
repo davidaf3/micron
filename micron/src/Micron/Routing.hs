@@ -107,11 +107,11 @@ put = methodPut
 delete :: Method
 delete = methodDelete
 
-type PathsMap m r = Map Method (Paths m)
+type PathsMap m = Map Method (Paths m)
 
-type SpecialPathsMap m r = Map (Method, SpecialPath) (Handler m)
+type SpecialPathsMap m = Map (Method, SpecialPath) (Handler m)
 
-mkPaths :: [Route m] -> (PathsMap m r, SpecialPathsMap m r)
+mkPaths :: [Route m] -> (PathsMap m, SpecialPathsMap m)
 mkPaths = foldl insertPath (Map.empty, Map.empty)
   where
     insertPath (ps, sps) (Route method (SpecialPath sp) h) = (ps, Map.insert (method, sp) h sps)
@@ -132,7 +132,7 @@ addPath path h (Just root) = addPath' path root
       Param n -> PathParam (Set.singleton n) ph $ addEmpty ps
       Exact n -> PathTree ph $ Map.insertWith (const $ addPath' ps) n (addEmpty ps) cs
 
-matchPath :: Method -> [T.Text] -> PathsMap m r -> Maybe (Handler m, Map T.Text T.Text)
+matchPath :: Method -> [T.Text] -> PathsMap m -> Maybe (Handler m, Map T.Text T.Text)
 matchPath method path pathsMap = do
   ps <- Map.lookup method pathsMap
   (h, args) <- matchPath' [] path ps
@@ -148,7 +148,7 @@ matchPath method path pathsMap = do
 matchSpecialPath ::
   Method ->
   SpecialPath ->
-  SpecialPathsMap m r ->
+  SpecialPathsMap m ->
   Handler m ->
   (Handler m, Map T.Text T.Text)
 matchSpecialPath method sp specialPathsMap defaultH =

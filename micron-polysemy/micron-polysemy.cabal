@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
-name:           micron
+name:           micron-polysemy
 version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/davidaf3/micron#readme>
 homepage:       https://github.com/davidaf3/micron#readme
@@ -17,17 +17,9 @@ source-repository head
 
 library
   exposed-modules:
-      Micron
-  other-modules:
-      Micron.App
-      Micron.Cookie
-      Micron.Error
-      Micron.MIMEType
-      Micron.Middleware
-      Micron.Request
-      Micron.Response
-      Micron.Routing
-      Micron.Extractor
+      Micron.Polysemy.Middleware
+      Micron.Polysemy.Extractor
+      Micron.Polysemy.SafeIO
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
@@ -40,12 +32,15 @@ library
       TypeSynonymInstances
       FlexibleInstances
       DataKinds
+      TypeOperators
   build-depends:
-      base >=4.7 && <5
+      micron
+    , base >=4.7 && <5
     , bytestring
+    , time
     , containers
     , http-types
     , text
     , wai
-    , attoparsec
+    , polysemy
   default-language: Haskell2010

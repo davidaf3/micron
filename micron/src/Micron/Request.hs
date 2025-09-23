@@ -39,6 +39,7 @@ data Request = Request
   { path :: B.ByteString,
     method :: Method,
     headers :: RequestHeaders,
+    cookies :: Map B.ByteString B.ByteString,
     params :: Map T.Text T.Text,
     queryString :: QueryString,
     requestBody :: BL.ByteString
