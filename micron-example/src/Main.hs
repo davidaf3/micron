@@ -1,5 +1,3 @@
-module Main (main) where
-
 import Control.Concurrent.STM (newTVarIO)
 import Micron
   ( Error,

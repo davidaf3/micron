@@ -4,7 +4,16 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Micron.Example.Db (DbAccess, query, insert, update, deleteFrom, useSqlite) where
+module Micron.Example.Db
+  ( DbAccess,
+    runDbAccess,
+    query,
+    insert,
+    update,
+    deleteFrom,
+    useSqlite,
+  )
+where
 
 import Data.Data (Proxy (Proxy))
 import Data.Kind (Type)

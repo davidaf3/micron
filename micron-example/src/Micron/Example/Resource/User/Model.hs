@@ -30,7 +30,7 @@ users :: Table User
 users = table "user" [#userId :- primary, #userName :- unique]
 
 data UserView = UserView {userId :: T.Text, userName :: T.Text}
-  deriving (Generic, Show, ToJSON)
+  deriving (Generic, Show, Eq, ToJSON)
   deriving (ToResponseContent) via (ToJSONVia UserView)
 
 deriving via (ToJSONVia [UserView]) instance (ToResponseContent [UserView])
