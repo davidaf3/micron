@@ -17,4 +17,4 @@ import Micron.MIMEType
 import Micron.Middleware
 import Micron.Request
 import Micron.Response
-import Micron.Routing (SpecialPath (..), delete, get, post, put, ($./), ($./:), (./), (./:))
+import Micron.Routing (SpecialPath (..), delete, get, post, put, ($/), ($/:), (./), (/), (/:))

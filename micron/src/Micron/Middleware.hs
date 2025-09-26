@@ -1,8 +1,13 @@
-module Micron.Middleware (Middleware, withMiddleware) where
+module Micron.Middleware (Middleware, middleware) where
 
-import Micron.Routing (Handler, Route (Route))
+import Control.Monad.State (modify, execState)
+import Micron.Routing (Handler, Route (Route), Routes)
 
 type Middleware m m' = Handler m -> Handler m'
 
-withMiddleware :: Middleware r r' -> [Route r] -> [Route r']
-withMiddleware mi = map (\(Route me p h) -> Route me p (mi h))
+middleware :: Middleware m m' -> Routes m -> Routes m'
+middleware mi rs =
+  let rs' = map applyMiddleware $ execState rs []
+   in modify (rs' ++)
+  where
+    applyMiddleware (Route me p h) = Route me p (mi h)

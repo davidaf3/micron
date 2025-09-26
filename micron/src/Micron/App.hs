@@ -1,5 +1,7 @@
 module Micron.App ((|>), app, defaultRoutes) where
 
+import Control.Monad (forM_)
+import Control.Monad.State (execState)
 import Data.Functor ((<&>))
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -11,12 +13,12 @@ import Micron.Error (BaseErrorType (NotFound), Error (Error), errorRes)
 import Micron.Request (Request (Request))
 import Micron.Routing
   ( Handler,
-    Route,
+    Routes,
     SpecialPath (NotFoundPath),
     matchPath,
     matchSpecialPath,
     mkPaths,
-    ($./),
+    ($/),
   )
 import Network.HTTP.Types.Method
   ( methodConnect,
@@ -36,8 +38,8 @@ infixr 1 |>
 (|>) :: (Monad m) => (r -> m o) -> (o -> r -> Wai.Response) -> r -> m Wai.Response
 (|>) h o req = h req <&> flip o req
 
-app :: [Route IO] -> Wai.Request -> (Wai.Response -> IO b) -> IO b
-app routes = app' $! mkPaths routes
+app :: Routes IO -> Wai.Request -> (Wai.Response -> IO b) -> IO b
+app routes = app' $! mkPaths $ execState routes []
   where
     app' (ps, sps) waiReq respond =
       let method = Wai.requestMethod waiReq
@@ -67,7 +69,7 @@ mkReq waiReq args =
 defaultNotFoundHandler :: (Monad m) => Handler m
 defaultNotFoundHandler = return . errorRes (Error NotFound "Not found")
 
-defaultRoutes :: (Monad m) => [Route m]
+defaultRoutes :: (Monad m) => Routes m
 defaultRoutes =
   let allMethods =
         [ methodConnect,
@@ -80,4 +82,5 @@ defaultRoutes =
           methodPut,
           methodTrace
         ]
-   in concatMap (\method -> [method $./ NotFoundPath $ defaultNotFoundHandler]) allMethods
+   in forM_ allMethods $ \method -> do
+        method $/ NotFoundPath $ defaultNotFoundHandler

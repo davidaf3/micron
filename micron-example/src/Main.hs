@@ -7,13 +7,13 @@ import Micron
     defaultRoutes,
     delete,
     get,
+    middleware,
     ok,
     post,
     put,
-    withMiddleware,
-    ($./),
-    (./),
-    (./:),
+    ($/),
+    (/),
+    (/:),
     (|>),
     (~.),
     (~>),
@@ -31,6 +31,7 @@ import Polysemy (Sem)
 import Polysemy.Error qualified as PE (Error)
 import Polysemy.State (gets, modify)
 import Polysemy.Trace (Trace, traceToStdout)
+import Prelude hiding ((/))
 
 globalMiddleware :: Middleware (Sem '[PE.Error Error, SafeIO, Trace]) IO
 globalMiddleware = usePolysemy . useLogging traceToStdout . useSafeIO . logRequests . handleAppErrors
@@ -40,22 +41,18 @@ main = do
   hits <- newTVarIO (emptySession @Int)
   Warp.run 3000 $
     app $
-      withMiddleware globalMiddleware $
-        withMiddleware (useSqlite "data/database.db") (
-          [ get   $./ ""                        $ const (return "Hello, World!") |> ok,
-            post  $./ "sign-up"                 $ body ~> signUp |> created,
-            post  $./ "login"                   $ body ~> login |> ok,
-            get   $./ "user"                    $ query ~> getUsers |> ok,
-            get   $./ "user" ./: "id" ./ "post" $ param "id" ~> getPostsByUser |> ok,
-            get   $./ "post" ./: "id"           $ param "id" ~> getPost |> ok
-          ]
-          ++ withMiddleware authenticated [
-            post    $./ "post"          $ body ~. user ~> addPost |> created,
-            put     $./ "post" ./: "id" $ param "id" ~. body ~. user ~> updatePost |> ok,
-            delete  $./ "post" ./: "id" $ param "id" ~. user ~> deletePost |> ok
-          ]
-        )
-        ++ withMiddleware (session hits 0) [
-          get $./ "hit" $ const (modify @Int (+ 1) >> gets @Int show) |> ok
-        ]
-        ++ defaultRoutes
+      middleware globalMiddleware $ do
+        middleware (useSqlite "data/database.db") $ do
+          get   $/ "" $ const (return "Hello, World!") |> ok
+          post  $/ "sign-up"  $ body ~> signUp |> created
+          post  $/ "login"    $ body ~> login |> ok
+          get   $/ "user"     $ query ~> getUsers |> ok
+          get   $/ "user" /: "id" / "post"  $ param "id" ~> getPostsByUser |> ok
+          get   $/ "post" /: "id"           $ param "id" ~> getPost |> ok
+          middleware authenticated $ do
+            post    $/ "post"         $ body ~. user ~> addPost |> created
+            put     $/ "post" /: "id" $ param "id" ~. body ~. user ~> updatePost |> ok
+            delete  $/ "post" /: "id" $ param "id" ~. user ~> deletePost |> ok
+        middleware (session hits 0) $ do
+          get $/ "hit" $ const (modify @Int (+ 1) >> gets @Int show) |> ok
+        defaultRoutes

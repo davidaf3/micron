@@ -48,4 +48,5 @@ library
     , text
     , wai
     , attoparsec
+    , mtl
   default-language: Haskell2010

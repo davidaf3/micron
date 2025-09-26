@@ -6,18 +6,21 @@ module Micron.Routing
     mkPaths,
     matchPath,
     matchSpecialPath,
+    (/),
     (./),
-    (./:),
-    ($./),
-    ($./:),
+    (/:),
+    ($/),
+    ($/:),
     Paths (..),
     SpecialPath (..),
     Path (..),
     Handler,
     Route (..),
+    Routes,
   )
 where
 
+import Control.Monad.State (State, modify)
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
@@ -33,6 +36,7 @@ import Network.HTTP.Types.Method
     methodPut,
   )
 import Network.Wai qualified as Wai
+import Prelude hiding ((/))
 
 type Handler m = Request -> m Wai.Response
 
@@ -75,25 +79,32 @@ instance ToPathParts (String, [PathPart]) where
   fromExact (x, pps) = Exact (T.pack x) : pps
   fromParam (x, pps) = Param (T.pack x) : pps
 
+type Routes m = State [Route m] ()
+
+infixr 9 /
+
+(/) :: (ToPathParts a) => String -> a -> (String, [PathPart])
+x / ys = (x, fromExact ys)
+
 infixr 9 ./
 
 (./) :: (ToPathParts a) => String -> a -> (String, [PathPart])
-x ./ ys = (x, fromExact ys)
+(./) = (/)
 
-infixr 9 ./:
+infixr 9 /:
 
-(./:) :: (ToPathParts a) => String -> a -> (String, [PathPart])
-x ./: ys = (x, fromParam ys)
+(/:) :: (ToPathParts a) => String -> a -> (String, [PathPart])
+x /: ys = (x, fromParam ys)
 
-infixl 8 $./
+infixl 8 $/
 
-($./) :: (ToPath a) => Method -> a -> (Handler m -> Route m)
-method $./ path = Route method $ toPath path
+($/) :: (ToPath a) => Method -> a -> Handler m -> Routes m
+($/) method path handler = modify (Route method (toPath path) handler :)
 
-infixl 8 $./:
+infixl 8 $/:
 
-($./:) :: (ToPathParts a) => Method -> a -> (Handler m -> Route m)
-method $./: path = Route method $ toPath $ fromParam path
+($/:) :: (ToPathParts a) => Method -> a -> Handler m -> Routes m
+($/:) method path handler = modify (Route method (toPath $ fromParam path) handler :)
 
 get :: Method
 get = methodGet
