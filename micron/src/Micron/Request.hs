@@ -1,18 +1,25 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Micron.Request
   ( Request (..),
     FromRequestBody (..),
     FromQueryString (..),
     Parseable (..),
+    HasParam,
+    getParam,
   )
 where
 
 import Data.ByteString qualified as B
 import Data.ByteString.Lazy qualified as BL
+import Data.Data (Proxy (..))
 import Data.Either (partitionEithers)
 import Data.Map (Map)
 import Data.Map qualified as Map
@@ -31,12 +38,14 @@ import GHC.Generics
     Selector (selName),
     (:*:) (..),
   )
+import GHC.TypeLits.Singletons (KnownSymbol, symbolVal)
+import Micron.Sing.Path (HasParam, Path)
 import Network.HTTP.Types (Method, RequestHeaders)
 
 type QueryString = Map B.ByteString T.Text
 
-data Request = Request
-  { path :: B.ByteString,
+data Request (ps :: Path) = Request
+  { rawPath :: B.ByteString,
     method :: Method,
     headers :: RequestHeaders,
     cookies :: Map B.ByteString B.ByteString,
@@ -44,6 +53,13 @@ data Request = Request
     queryString :: QueryString,
     requestBody :: BL.ByteString
   }
+
+getParam ::
+  forall param path.
+  (KnownSymbol param, HasParam path param ~ 'True) =>
+  Request path ->
+  Maybe T.Text
+getParam req = Map.lookup (T.pack $ symbolVal $ Proxy @param) $ params req
 
 class FromRequestBody a where
   fromAppJson :: BL.ByteString -> Either String a

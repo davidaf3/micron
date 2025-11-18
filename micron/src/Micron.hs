@@ -1,3 +1,5 @@
+{-# LANGUAGE ExplicitNamespaces #-}
+
 module Micron
   ( module Micron.Routing,
     module Micron.Middleware,
@@ -17,4 +19,19 @@ import Micron.MIMEType
 import Micron.Middleware
 import Micron.Request
 import Micron.Response
-import Micron.Routing (SpecialPath (..), delete, get, post, put, ($/), ($/:), (./), (/), (/:))
+import Micron.Routing
+  ( R,
+    SpecialPath (..),
+    connect,
+    delete,
+    get,
+    head_,
+    options,
+    patch,
+    post,
+    put,
+    trace,
+    type (./),
+    type (/),
+    type (/:),
+  )

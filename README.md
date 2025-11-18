@@ -12,18 +12,18 @@ main = do
     app $
       middleware globalMiddleware $ do
         middleware (useSqlite "data/database.db") $ do
-          get   $/ "" $ const (return "Hello, World!") |> ok
-          post  $/ "sign-up"  $ body ~> signUp |> created
-          post  $/ "login"    $ body ~> login |> ok
-          get   $/ "user"     $ query ~> getUsers |> ok
-          get   $/ "user" /: "id" / "post"  $ param "id" ~> getPostsByUser |> ok
-          get   $/ "post" /: "id"           $ param "id" ~> getPost |> ok
+          get   @(R / "") $ const (return "Hello, World!") |> ok
+          post  @(R / "sign-up")  $ body ~> signUp |> created
+          post  @(R / "login")    $ body ~> login |> ok
+          get   @(R / "user")     $ query ~> getUsers |> ok
+          get   @(R / "user" /: "id" / "post")  $ param @"id" ~> getPostsByUser |> ok
+          get   @(R / "post" /: "id")           $ param @"id" ~> getPost |> ok
           middleware authenticated $ do
-            post    $/ "post"         $ body ~. user ~> addPost |> created
-            put     $/ "post" /: "id" $ param "id" ~. body ~. user ~> updatePost |> ok
-            delete  $/ "post" /: "id" $ param "id" ~. user ~> deletePost |> ok
+            post    @(R / "post") $ body ~. user ~> addPost |> created
+            put     @(R / "post" /: "id") $ param @"id" ~. body ~. user ~> updatePost |> ok
+            delete  @(R / "post" /: "id") $ param @"id" ~. user ~> deletePost |> ok
         middleware (session hits 0) $ do
-          get $/ "hit" $ const (modify @Int (+ 1) >> gets @Int show) |> ok
+          get @(R / "hit") $ const (modify @Int (+ 1) >> gets @Int show) |> ok
         defaultRoutes
 ```
 

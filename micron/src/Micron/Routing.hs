@@ -1,167 +1,169 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module Micron.Routing
-  ( get,
+  ( mkRoute,
+    get,
     post,
     put,
     delete,
+    patch,
+    options,
+    head_,
+    connect,
+    trace,
+    allMethods,
     mkPaths,
     matchPath,
     matchSpecialPath,
-    (/),
-    (./),
-    (/:),
-    ($/),
-    ($/:),
     Paths (..),
     SpecialPath (..),
     Path (..),
+    R,
     Handler,
     Route (..),
     Routes,
+    type (./),
+    type (/),
+    type (/:),
   )
 where
 
 import Control.Monad.State (State, modify)
-import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import Data.Set qualified as Set
+import Data.Singletons (SingI (sing), demote, fromSing)
 import Data.Text qualified as T
 import Micron.Request (Request)
+import Micron.Sing.Path
+  ( DPathPart (..),
+    DSpecialPath,
+    IntoPath,
+    Path (..),
+    R,
+    SDPath (..),
+    SpecialPath (..),
+    type (./),
+    type (/),
+    type (/:),
+  )
 import Network.HTTP.Types.Method
   ( Method,
+    methodConnect,
     methodDelete,
     methodGet,
+    methodHead,
+    methodOptions,
+    methodPatch,
     methodPost,
     methodPut,
+    methodTrace,
   )
 import Network.Wai qualified as Wai
 import Prelude hiding ((/))
 
-type Handler m = Request -> m Wai.Response
+type Handler p m = Request p -> m Wai.Response
 
-data SpecialPath = NotFoundPath deriving (Eq, Ord)
-
-data Path = SpecialPath SpecialPath | PathParts [PathPart]
-
-data Route m = Route Method Path (Handler m)
-
-class ToPath a where
-  toPath :: a -> Path
-
-instance ToPath String where
-  toPath = PathParts . fromExact
-
-instance ToPath SpecialPath where
-  toPath = SpecialPath
-
-instance ToPath [PathPart] where
-  toPath = PathParts
-
-instance ToPath (String, [PathPart]) where
-  toPath = PathParts . fromExact
-
-data Paths m
-  = PathTree (Maybe (Handler m)) (Map T.Text (Paths m))
-  | PathParam (Set T.Text) (Maybe (Handler m)) (Paths m)
-
-data PathPart = Exact T.Text | Param T.Text
-
-class ToPathParts a where
-  fromExact :: a -> [PathPart]
-  fromParam :: a -> [PathPart]
-
-instance ToPathParts String where
-  fromExact x = [Exact $ T.pack x]
-  fromParam x = [Param $ T.pack x]
-
-instance ToPathParts (String, [PathPart]) where
-  fromExact (x, pps) = Exact (T.pack x) : pps
-  fromParam (x, pps) = Param (T.pack x) : pps
+data Route m where
+  Route :: Method -> (SDPath p) -> (Handler p m) -> Route m
 
 type Routes m = State [Route m] ()
 
-infixr 9 /
+mkRoute :: forall a m. (SingI (IntoPath a)) => Method -> Handler (IntoPath a) m -> Routes m
+mkRoute method handler = modify (Route method (sing @(IntoPath a)) handler :)
 
-(/) :: (ToPathParts a) => String -> a -> (String, [PathPart])
-x / ys = (x, fromExact ys)
+get :: forall a m. (SingI (IntoPath a)) => Handler (IntoPath a) m -> Routes m
+get = mkRoute @a methodGet
 
-infixr 9 ./
+post :: forall a m. (SingI (IntoPath a)) => Handler (IntoPath a) m -> Routes m
+post = mkRoute @a methodPost
 
-(./) :: (ToPathParts a) => String -> a -> (String, [PathPart])
-(./) = (/)
+put :: forall a m. (SingI (IntoPath a)) => Handler (IntoPath a) m -> Routes m
+put = mkRoute @a methodPut
 
-infixr 9 /:
+delete :: forall a m. (SingI (IntoPath a)) => Handler (IntoPath a) m -> Routes m
+delete = mkRoute @a methodDelete
 
-(/:) :: (ToPathParts a) => String -> a -> (String, [PathPart])
-x /: ys = (x, fromParam ys)
+patch :: forall a m. (SingI (IntoPath a)) => Handler (IntoPath a) m -> Routes m
+patch = mkRoute @a methodPatch
 
-infixl 8 $/
+options :: forall a m. (SingI (IntoPath a)) => Handler (IntoPath a) m -> Routes m
+options = mkRoute @a methodOptions
 
-($/) :: (ToPath a) => Method -> a -> Handler m -> Routes m
-($/) method path handler = modify (Route method (toPath path) handler :)
+head_ :: forall a m. (SingI (IntoPath a)) => Handler (IntoPath a) m -> Routes m
+head_ = mkRoute @a methodHead
 
-infixl 8 $/:
+connect :: forall a m. (SingI (IntoPath a)) => Handler (IntoPath a) m -> Routes m
+connect = mkRoute @a methodConnect
 
-($/:) :: (ToPathParts a) => Method -> a -> Handler m -> Routes m
-($/:) method path handler = modify (Route method (toPath $ fromParam path) handler :)
+trace :: forall a m. (SingI (IntoPath a)) => Handler (IntoPath a) m -> Routes m
+trace = mkRoute @a methodTrace
 
-get :: Method
-get = methodGet
+allMethods :: [Method]
+allMethods =
+  [ methodGet,
+    methodPost,
+    methodPut,
+    methodDelete,
+    methodPatch,
+    methodOptions,
+    methodHead,
+    methodConnect,
+    methodTrace
+  ]
 
-post :: Method
-post = methodPost
+data Paths m
+  = PathTree (Map.Map Method (Route m)) (Map.Map T.Text (Paths m))
+  | PathParam (Map.Map Method (Route m)) (Set T.Text) (Paths m)
 
-put :: Method
-put = methodPut
+type SpecialPaths m = Map.Map (Method, DSpecialPath) (Route m)
 
-delete :: Method
-delete = methodDelete
+emptyPaths :: Paths m
+emptyPaths = PathTree Map.empty Map.empty
 
-type PathsMap m = Map Method (Paths m)
-
-type SpecialPathsMap m = Map (Method, SpecialPath) (Handler m)
-
-mkPaths :: [Route m] -> (PathsMap m, SpecialPathsMap m)
-mkPaths = foldl insertPath (Map.empty, Map.empty)
+mkPaths :: [Route m] -> (Paths m, SpecialPaths m)
+mkPaths = foldl insertRoute (emptyPaths, Map.empty)
   where
-    insertPath (ps, sps) (Route method (SpecialPath sp) h) = (ps, Map.insert (method, sp) h sps)
-    insertPath (ps, sps) (Route method (PathParts path) h) =
-      (Map.alter (Just . addPath path h) method ps, sps)
+    insertRoute :: (Paths m, SpecialPaths m) -> Route m -> (Paths m, SpecialPaths m)
+    insertRoute (ps, sps) r@(Route m (SDSpecial sp) _) = (ps, Map.insert (m, fromSing sp) r sps)
+    insertRoute (ps, sps) r@(Route _ (SDParts parts) _) = (addRoute (fromSing parts) r ps, sps)
 
-addPath :: [PathPart] -> Handler m -> Maybe (Paths m) -> Paths m
-addPath path h Nothing = addPath path h $ Just (PathTree Nothing Map.empty)
-addPath path h (Just root) = addPath' path root
-  where
-    addEmpty ps = addPath' ps $ PathTree Nothing Map.empty
-    addPath' [] (PathParam n _ c) = PathParam n (Just h) c
-    addPath' [] (PathTree _ cs) = PathTree (Just h) cs
-    addPath' (p : ps) (PathParam ns ph c) = case p of
-      Param n -> PathParam (Set.insert n ns) ph $ addPath' ps c
-      _ -> addEmpty ps
-    addPath' (p : ps) (PathTree ph cs) = case p of
-      Param n -> PathParam (Set.singleton n) ph $ addEmpty ps
-      Exact n -> PathTree ph $ Map.insertWith (const $ addPath' ps) n (addEmpty ps) cs
+addRoute :: [DPathPart] -> Route m -> Paths m -> Paths m
+addRoute [] r@(Route m _ _) (PathParam rs n c) = PathParam (Map.insert m r rs) n c
+addRoute [] r@(Route m _ _) (PathTree rs cs) = PathTree (Map.insert m r rs) cs
+addRoute (DParam x : xs) r (PathParam rs ns c) =
+  PathParam rs (Set.insert x ns) (addRoute xs r c)
+addRoute (DExact x : xs) r (PathParam rs _ _) =
+  PathTree rs (Map.singleton x (addRoute xs r emptyPaths))
+addRoute (DParam x : xs) r (PathTree rs _) =
+  PathParam rs (Set.singleton x) (addRoute xs r emptyPaths)
+addRoute (DExact x : xs) r (PathTree rs cs) =
+  PathTree rs (Map.insertWith (const $ addRoute xs r) x (addRoute xs r emptyPaths) cs)
 
-matchPath :: Method -> [T.Text] -> PathsMap m -> Maybe (Handler m, Map T.Text T.Text)
-matchPath method path pathsMap = do
-  ps <- Map.lookup method pathsMap
-  (h, args) <- matchPath' [] path ps
-  return (h, Map.fromList args)
+matchPath :: Method -> [T.Text] -> Paths m -> Maybe (Route m, Map.Map T.Text T.Text)
+matchPath method = go Map.empty
   where
-    matchPath' _ [] (PathParam _ Nothing _) = Nothing
-    matchPath' _ [] (PathTree Nothing _) = Nothing
-    matchPath' args [] (PathParam _ (Just h) _) = Just (h, args)
-    matchPath' args [] (PathTree (Just h) _) = Just (h, args)
-    matchPath' args (p : ps) (PathParam ns _ c) = matchPath' (args ++ map (,p) (Set.elems ns)) ps c
-    matchPath' args (p : ps) (PathTree _ cs) = Map.lookup p cs >>= matchPath' args ps
+    go args [] (PathParam rs _ _) = (,args) <$> Map.lookup method rs
+    go args [] (PathTree rs _) = (,args) <$> Map.lookup method rs
+    go args (p : ps) (PathParam _ ns c) = go (foldr (`Map.insert` p) args (Set.elems ns)) ps c
+    go args (p : ps) (PathTree _ cs) = Map.lookup p cs >>= go args ps
 
 matchSpecialPath ::
+  forall sp m.
+  (SingI sp) =>
   Method ->
-  SpecialPath ->
-  SpecialPathsMap m ->
-  Handler m ->
-  (Handler m, Map T.Text T.Text)
-matchSpecialPath method sp specialPathsMap defaultH =
-  let h = fromMaybe defaultH $ Map.lookup (method, sp) specialPathsMap
-   in (h, Map.empty)
+  SpecialPaths m ->
+  Handler ('Special sp) m ->
+  (Route m, Map.Map T.Text T.Text)
+matchSpecialPath method specialPathsMap defaultH =
+  let maybeR = Map.lookup (method, demote @sp) specialPathsMap
+      defaultR = Route method (sing @('Special sp)) defaultH
+   in (fromMaybe defaultR maybeR, Map.empty)

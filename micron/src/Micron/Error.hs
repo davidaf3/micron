@@ -12,11 +12,11 @@ import Micron.Response
   )
 import Network.Wai qualified as Wai
 
-errorRes :: Error -> Request -> Wai.Response
+errorRes :: Error -> Request p -> Wai.Response
 errorRes err@(Error t _) = responseMaker t err
 
 class ErrorType a where
-  responseMaker :: a -> Error -> Request -> Wai.Response
+  responseMaker :: a -> Error -> Request p -> Wai.Response
 
 data Error where
   Error :: (ErrorType a) => a -> String -> Error

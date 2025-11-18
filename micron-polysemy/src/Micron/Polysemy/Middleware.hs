@@ -39,7 +39,7 @@ logRequests h req = do
       status = HTTP.statusCode $ Wai.responseStatus res
       method = Request.method req
       paddedMethod = BC.unpack $ method <> BC.replicate (7 - BC.length method) ' '
-      path = BC.unpack $ Request.path req
+      path = BC.unpack $ Request.rawPath req
   trace $ printf "%s\t%d\t%s\t%s" formattedTime status paddedMethod path
   return res
 
